@@ -90,8 +90,17 @@ Config.Rail = {
 	CHARGES = 1,
 	RELOAD = 2.5,
 	RANGE = 220.0,
+	COOLDOWN = 0.35,
+	DAMAGE = 1, -- en 1v1 : 1 vie
 	ROCKET_DESTROY_DIST = 0.55,
 	ZOOM_FACTOR = 0.45,
+	BEAM_COLOR = Color3.new(0.22, 0.91, 1.0),
+	BEAM_TIME = 0.35,
+	-- Tolérances du serveur.
+	SERVER_MIN_INTERVAL = 0.3,
+	SERVER_RAIL_MEMORY = 5.0, -- s : on garde le Rail tant qu'on n'a pas reposé le pied ailleurs (le serveur tolère 5 s)
+	SERVER_HIT_TOLERANCE = 2.2, -- m : écart permis entre la touche vue par le tireur et la cible côté serveur
+	SERVER_ROCKET_LAG = 0.25, -- s : on teste aussi où la roquette était il y a si peu
 }
 
 -- Règles du 1v1 « Règlement de comptes » ------------------------------------------
@@ -119,6 +128,8 @@ Config.Teams = {
 -- sons (Creator Store → copier l'ID → "rbxassetid://123456").
 Config.Sounds = {
 	ROCKET_FIRE = "rbxasset://sounds/Rocket shot.wav",
+	RAIL_FIRE = "rbxasset://sounds/electronicpingshort.wav", -- joué grave
+	DETONATE = "rbxasset://sounds/electronicpingshort.wav",
 	ROCKET_FLY = "rbxasset://sounds/Rocket whoosh 01.wav",
 	HIT = "rbxasset://sounds/electronicpingshort.wav",
 	KILL = "rbxasset://sounds/electronicpingshort.wav", -- joué plus fort et plus grave

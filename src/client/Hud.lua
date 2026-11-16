@@ -76,6 +76,26 @@ for i = 1, CHARGES do
 	chargeFills[i] = fill
 end
 
+-- Nom de l'arme en main et charge du Rail (un segment cyan).
+local weaponLabel = Instance.new("TextLabel")
+weaponLabel.Name = "Weapon"
+weaponLabel.BackgroundTransparency = 1
+weaponLabel.AnchorPoint = Vector2.new(0, 1)
+weaponLabel.Position = UDim2.new(0.5, 140, 1, -50)
+weaponLabel.Size = UDim2.fromOffset(120, 22)
+weaponLabel.Font = Enum.Font.GothamBlack
+weaponLabel.TextSize = 16
+weaponLabel.TextXAlignment = Enum.TextXAlignment.Left
+weaponLabel.TextColor3 = Color3.new(1, 1, 1)
+weaponLabel.TextStrokeTransparency = 0.4
+weaponLabel.Text = "ROQUETTE"
+weaponLabel.Parent = gui
+
+local railBack = frame({ Name = "RailCharge", Size = UDim2.fromOffset(260, 14), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -54), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, Parent = gui })
+Instance.new("UICorner", railBack).CornerRadius = UDim.new(0, 3)
+local railFill = frame({ Size = UDim2.fromScale(1, 1), BackgroundColor3 = Config.Rail.BEAM_COLOR, Parent = railBack })
+Instance.new("UICorner", railFill).CornerRadius = UDim.new(0, 3)
+
 -- Vies : 3 pastilles.
 local LIVES = Config.Joust.LIVES
 local livesRow = frame({ Name = "Lives", Size = UDim2.fromOffset(LIVES * 26, 20), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -76), BackgroundTransparency = 1, Parent = gui })
@@ -209,7 +229,15 @@ function Hud.showDamaged()
 	TweenService:Create(damageFlash, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
 end
 
-function Hud.updateWeapons(charges: number)
+function Hud.updateWeapons(charges: number, weapon: string?, railCharges: number?)
+	local rail = weapon == "rail"
+	chargeBar.Visible = not rail
+	railBack.Visible = rail
+	weaponLabel.Text = if rail then "RAIL" else "ROQUETTE"
+	weaponLabel.TextColor3 = if rail then Config.Rail.BEAM_COLOR else Color3.new(1, 1, 1)
+	local rc = math.clamp(railCharges or 0, 0, 1)
+	railFill.Size = UDim2.fromScale(rc, 1)
+	railFill.BackgroundTransparency = if rc < 1 then 0.45 else 0
 	for i, fill in chargeFills do
 		local k = math.clamp(charges - (i - 1), 0, 1)
 		fill.Size = UDim2.fromScale(k, 1)

@@ -73,6 +73,8 @@ function Movement.new(character: Model)
 	self.surface = "rocket"
 	self.surfacePart = nil :: BasePart?
 	self.frozen = false
+	self.zooming = false
+	self.zoomLock = false
 	self.yaw = 0
 
 	-- Paramètres des requêtes : seulement ce contre quoi le Collider bute.
@@ -293,9 +295,23 @@ function Movement:step(dt: number, input)
 		self.surface = groundPart and groundPart:GetAttribute("Surface") or "rocket"
 	end
 
+	-- Plateforme Rail : le bouton de mobilité zoome au lieu de sauter. Tant qu'il reste
+	-- tenu depuis le zoom, il est ignoré (on ne saute pas en quittant la plateforme).
+	local rawHeld = input.held
+	if floorNow and self.surface == "rail" and not self.frozen then
+		self.zooming = rawHeld
+		self.zoomLock = rawHeld
+		self.sprinting = false
+	else
+		self.zooming = false
+		if not rawHeld then
+			self.zoomLock = false
+		end
+	end
+
 	-- Bouton de mobilité.
-	local held = input.held
-	local pressed = input.pressed
+	local held = rawHeld and not self.zoomLock
+	local pressed = input.pressed and not self.zoomLock
 	local released = self.prevHeld and not held
 	self.prevHeld = held
 	if self.frozen then

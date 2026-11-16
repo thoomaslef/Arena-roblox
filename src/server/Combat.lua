@@ -4,7 +4,9 @@
 --
 -- Messages vers les clients (RemoteEvent « Combat », un seul canal pour garder l'ordre) :
 --   "spawn",   id, shooterUserId, clientId, spawn(m), vel(m/s), serverTime
---   "explode", id, shooterUserId, pos(m) ou nil (roquette expirée), normal
+--   "explode", id, ownerUserId, pos(m) ou nil (roquette expirée), normal
+--   "rail",    shooterUserId, muzzle(m), end(m), team   → rayon visible (sauf chez le tireur)
+--   "detonated"                                 → au tireur du Rail (« Roquette détruite en vol ! »)
 --   "push",    impulse(m/s)                     → au joueur poussé (sauf le tireur)
 --   "hit",     victimName, killed               → au tireur (marqueur de touche, « +1 »)
 --   "damaged", fromPos(m), livesLeft            → à la victime
@@ -18,8 +20,10 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Rocket = require(Shared.Rocket)
+local Rail = require(Shared.Rail)
 
 local R = Config.Rocket
+local RL = Config.Rail
 
 local Combat = {}
 
@@ -28,19 +32,23 @@ remotes.Name = "Remotes"
 local fireRemote = Instance.new("RemoteEvent")
 fireRemote.Name = "Fire"
 fireRemote.Parent = remotes
+local railRemote = Instance.new("RemoteEvent")
+railRemote.Name = "FireRail"
+railRemote.Parent = remotes
 local combatRemote = Instance.new("RemoteEvent")
 combatRemote.Name = "Combat"
 combatRemote.Parent = remotes
 remotes.Parent = ReplicatedStorage
 
 -- État d'arme par joueur.
-type Arms = { charges: number, t: number, lastFire: number }
+type Arms = { charges: number, rail: number, t: number, lastFire: number, lastRail: number }
 local arms: { [Player]: Arms } = {}
 
 -- Roquettes en vol.
 type Live = {
 	id: number,
-	shooter: Player,
+	owner: Player, -- qui a tiré la roquette (calcule sa propre poussée)
+	shooter: Player, -- à qui reviennent les dégâts (change si un Rail la fait exploser)
 	pos: Vector3,
 	prev: Vector3,
 	vel: Vector3,
@@ -61,7 +69,7 @@ end
 
 -- Remis à zéro (début de manche, réapparition).
 function Combat.resetArms(player: Player)
-	arms[player] = { charges = R.CHARGES, t = os.clock(), lastFire = -math.huge }
+	arms[player] = { charges = R.CHARGES, rail = RL.CHARGES, t = os.clock(), lastFire = -math.huge, lastRail = -math.huge }
 end
 
 local function armsOf(player: Player): Arms
@@ -71,7 +79,9 @@ local function armsOf(player: Player): Arms
 		a = arms[player]
 	end
 	local now = os.clock()
+	-- Les deux armes se rechargent en continu, même celle qu'on n'a pas en main.
 	a.charges = math.min(R.CHARGES, a.charges + (now - a.t) / R.RELOAD)
+	a.rail = math.min(RL.CHARGES, a.rail + (now - a.t) / RL.RELOAD)
 	a.t = now
 	return a
 end
@@ -104,10 +114,19 @@ function Combat.canFire(player: Player): boolean
 	return Combat.canBeHit(player)
 end
 
+-- Applique une touche (1 vie) et prévient le tireur et la victime.
+local function applyHit(victim: Player, attacker: Player, from: Vector3)
+	local killed = Combat.onDamage(victim, attacker)
+	if attacker.Parent then
+		combatRemote:FireClient(attacker, "hit", victim.DisplayName, killed)
+	end
+	combatRemote:FireClient(victim, "damaged", from, victim:GetAttribute("Lives"))
+end
+
 local function explode(rk: Live, pos: Vector3, n: Vector3)
 	rockets[rk.id] = nil
 	local shooter = rk.shooter
-	combatRemote:FireAllClients("explode", rk.id, shooter.UserId, pos, n)
+	combatRemote:FireAllClients("explode", rk.id, rk.owner.UserId, pos, n)
 	local wp = world()
 	for _, p in Players:GetPlayers() do
 		if not Combat.canBeHit(p) then
@@ -119,14 +138,10 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 		end
 		-- Dégâts : jamais sur soi (ni sur un allié, sans objet en 1v1).
 		if p ~= shooter and Rocket.damages(pos, n, feet, wp) then
-			local killed = Combat.onDamage(p, shooter)
-			if shooter.Parent then
-				combatRemote:FireClient(shooter, "hit", p.DisplayName, killed)
-			end
-			combatRemote:FireClient(p, "damaged", pos, p:GetAttribute("Lives"))
+			applyHit(p, shooter, pos)
 		end
-		-- Poussée : tout le monde ; le tireur calcule la sienne lui-même (réactivité du rocket jump).
-		if p ~= shooter then
+		-- Poussée : tout le monde ; le lanceur calcule la sienne lui-même (réactivité du rocket jump).
+		if p ~= rk.owner then
 			local push = Rocket.push(pos, n, feet, wp)
 			if push then
 				combatRemote:FireClient(p, "push", push)
@@ -135,7 +150,7 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 	end
 end
 
--- Exposé pour le Rail (étape 6) : fait exploser une roquette en vol.
+-- Fait exploser une roquette en vol (Rail) : les dégâts reviennent au tireur du Rail.
 function Combat.detonate(id: number, by: Player)
 	local rk = rockets[id]
 	if rk then
@@ -185,9 +200,118 @@ fireRemote.OnServerEvent:Connect(function(player, clientId, eye, dir, yaw)
 	local params = Rocket.shotParams(player.Character)
 	local spawn, vel = Rocket.launch(eye, dir, yaw, params)
 	nextId += 1
-	local rk: Live = { id = nextId, shooter = player, pos = spawn, prev = eye, vel = vel, life = 0, params = params }
+	local rk: Live = { id = nextId, owner = player, shooter = player, pos = spawn, prev = eye, vel = vel, life = 0, params = params }
 	rockets[rk.id] = rk
 	combatRemote:FireAllClients("spawn", rk.id, player.UserId, clientId, spawn, vel, Workspace:GetServerTimeNow())
+end)
+
+-- Rail --------------------------------------------------------------------------------
+-- Dernière fois que le serveur a vu le joueur debout sur une plateforme Rail.
+local railSeen: { [Player]: number } = {}
+
+local function standingSurface(character: Model?): string?
+	local feet = Rocket.feetOf(character)
+	if not feet then
+		return nil
+	end
+	local S = Config.STUDS_PER_METER
+	local hit = Workspace:Raycast((feet + Vector3.new(0, 0.2, 0)) * S, Vector3.new(0, -0.6 * S, 0), world())
+	return hit and hit.Instance:GetAttribute("Surface") or nil
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.15)
+		for _, p in Players:GetPlayers() do
+			if standingSurface(p.Character) == "rail" then
+				railSeen[p] = os.clock()
+			end
+		end
+	end
+end)
+
+-- Le point vu touché par le tireur est-il crédible côté serveur ?
+local function claimValid(victim: Player, claim: Vector3, eye: Vector3, dir: Vector3): boolean
+	local feet = Rocket.feetOf(victim.Character)
+	if not feet then
+		return false
+	end
+	local a, b = feet, feet + Vector3.new(0, Config.Body.HEIGHT, 0)
+	local ab = b - a
+	local t = math.clamp((claim - a):Dot(ab) / ab:Dot(ab), 0, 1)
+	if (claim - (a + ab * t)).Magnitude > Config.Body.RADIUS + RL.SERVER_HIT_TOLERANCE then
+		return false
+	end
+	local to = claim - eye
+	if to.Magnitude > RL.RANGE or to.Magnitude < 1e-3 or to.Unit:Dot(dir) < 0.995 then
+		return false
+	end
+	-- Rien de solide entre l'œil et la touche.
+	return Workspace:Raycast(eye * Config.STUDS_PER_METER, to * 0.98 * Config.STUDS_PER_METER, world()) == nil
+end
+
+railRemote.OnServerEvent:Connect(function(player, eye, dir, yaw, claimUserId, claimPoint)
+	if not isFiniteVec(eye) or not isFiniteVec(dir) or type(yaw) ~= "number" or yaw ~= yaw or dir.Magnitude < 0.5 then
+		return
+	end
+	dir = dir.Unit
+	local a = armsOf(player)
+	local now = os.clock()
+	local feet = Rocket.feetOf(player.Character)
+	local ok = feet ~= nil
+		and Combat.canFire(player)
+		and a.rail >= R.SERVER_MIN_CHARGE
+		and now - a.lastRail >= RL.SERVER_MIN_INTERVAL
+		and now - (railSeen[player] or -math.huge) <= RL.SERVER_RAIL_MEMORY
+		and player.Character:GetAttribute("CanFire") ~= false
+	if ok then
+		local serverEye = (feet :: Vector3) + Vector3.new(0, Config.Body.EYE_HEIGHT, 0)
+		ok = (serverEye - eye).Magnitude <= R.SERVER_EYE_TOLERANCE
+	end
+	if not ok then
+		return
+	end
+	a.rail -= 1
+	a.lastRail = now
+
+	local S = Config.STUDS_PER_METER
+	local params = Rocket.shotParams(player.Character)
+	local hit = Workspace:Raycast(eye * S, dir * RL.RANGE * S, params)
+	local stop = if hit then hit.Position / S else eye + dir * RL.RANGE
+	local hitPlayer = if hit then Players:GetPlayerFromCharacter(hit.Instance:FindFirstAncestorOfClass("Model")) else nil
+
+	-- Le tireur a vu une touche : on la retient si elle est crédible (favorise le tireur).
+	local victim: Player? = nil
+	if type(claimUserId) == "number" and isFiniteVec(claimPoint) then
+		local claimed = Players:GetPlayerByUserId(claimUserId)
+		if claimed and claimed ~= player and Combat.canBeHit(claimed) and claimValid(claimed, claimPoint, eye, dir) then
+			victim = claimed
+			stop = claimPoint
+		end
+	end
+	if not victim and hitPlayer and hitPlayer ~= player and Combat.canBeHit(hitPlayer) then
+		victim = hitPlayer
+	end
+
+	-- Une roquette sur la trajectoire, avant l'obstacle : elle explose en vol.
+	local list = {}
+	for id, rk in rockets do
+		table.insert(list, { key = id, pos = rk.pos, vel = rk.vel })
+	end
+	local rid, along = Rail.rocketOnRay(eye, dir, (stop - eye).Magnitude, list, RL.SERVER_ROCKET_LAG)
+	local muzzle = Rail.muzzle(eye, dir, yaw)
+	local team = player:GetAttribute("Team")
+	if rid then
+		stop = eye + dir * (along :: number)
+		combatRemote:FireAllClients("rail", player.UserId, muzzle, stop, team)
+		combatRemote:FireClient(player, "detonated")
+		Combat.detonate(rid, player)
+		return
+	end
+	combatRemote:FireAllClients("rail", player.UserId, muzzle, stop, team)
+	if victim then
+		applyHit(victim, player, eye)
+	end
 end)
 
 RunService.Heartbeat:Connect(function(dt)
@@ -200,7 +324,7 @@ RunService.Heartbeat:Connect(function(dt)
 			explode(rk, hitPos + n * 0.05, n)
 		elseif rk.life > R.LIFETIME then
 			rockets[id] = nil
-			combatRemote:FireAllClients("explode", id, rk.shooter.UserId, nil, nil)
+			combatRemote:FireAllClients("explode", id, rk.owner.UserId, nil, nil)
 		else
 			rk.pos = to
 		end
@@ -209,6 +333,7 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
 	arms[player] = nil
+	railSeen[player] = nil
 end)
 
 return Combat

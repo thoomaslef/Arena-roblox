@@ -13,7 +13,7 @@ Portage du jeu Godot (`thoomaslef/Arena`). Le cahier des charges complet est dan
 | 3 | Roquette, explosion, poussée, rocket jump | ✅ à tester |
 | 4 | Import des maps Godot (Cratère par défaut) | ✅ à tester |
 | 5 | Règles du 1v1 : vies, manches, score, gaz, HUD | ✅ à tester |
-| 6 | Plateformes Rail + Rail | à faire |
+| 6 | Plateformes Rail + Rail (et destruction des roquettes en vol) | ✅ à tester |
 | 7 | Matchmaking 2 joueurs, bot, publication | à faire |
 
 ## Organisation
@@ -25,6 +25,7 @@ src/shared/  → ReplicatedStorage.Shared   (code commun client + serveur)
   MapBuilder.lua             construit une map JSON Godot en Parts
   CharacterRig.lua           prépare l'avatar (cylindre de collision, groupes)
   Rocket.lua                 calculs de la roquette (départ, explosion, poussée)
+  Rail.lua                   calculs du Rail (canon, roquette sur la trajectoire)
   JoustRules.lua             règles du 1v1 partagées (rayon du gaz, victoire, fil des éliminations)
   Maps/*.json                les 5 maps 1v1 du jeu Godot
 src/server/  → ServerScriptService.Server
@@ -102,6 +103,18 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Le serveur fait foi pour les dégâts ; ta roquette s'affiche et te pousse tout de suite chez toi.
 - Les sons sont ceux intégrés à Roblox, à remplacer dans `Config.Sounds`.
 
+## Rail (étape 6)
+
+- Sur une plateforme **Rail** (blocs néon cyan), l'arme devient le **Rail** : tir instantané,
+  220 m, **1 vie** retirée, 1 charge rechargée en 2,5 s. On le garde en l'air jusqu'à reposer
+  le pied ailleurs.
+- Sur la plateforme, le bouton de mobilité **zoome** (champ de vision × 0,45) au lieu de sauter.
+- Un tir de Rail qui passe à moins de 0,55 m d'une roquette en vol la **fait exploser**
+  (« Roquette détruite en vol ! ») ; les dégâts de cette explosion reviennent au tireur du Rail.
+- Roquettes et Rail se rechargent en même temps, même l'arme qu'on n'a pas en main.
+- Le serveur accepte la touche vue par le tireur si elle est crédible (cible à moins de ~2 m de sa
+  position serveur, rien de solide entre les deux) : pas besoin d'anticiper le ping.
+
 ## Règles du 1v1 (étape 5)
 
 - **Seul sur le serveur** : entraînement libre (« En attente d'un adversaire… »), pas de gaz.
@@ -120,6 +133,7 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Le **ressenti** : vitesse de course, hauteur du saut, plané, sprint, wall-jump.
 - Le **rocket jump** : hauteur gagnée, et la poussée quand l'adversaire tire près de toi
   (test à deux : Test → Clients and Servers → 2 Players).
+- Le **Rail** : zoom sur la plateforme, touche, roquette détruite en vol.
 - Une **partie complète à deux** : compte à rebours, changement de côté, gaz, score, fin de match.
 - Les **rampes** montent dans le bon sens ? (sinon dis-le : c'est une ligne à inverser)
 - Bugs éventuels : copie le texte rouge de la fenêtre **Output** (Affichage → Output).

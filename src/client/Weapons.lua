@@ -12,22 +12,28 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Rocket = require(Shared.Rocket)
+local Rail = require(Shared.Rail)
 
 local Fx = require(script.Parent.Fx)
 local FpsCamera = require(script.Parent.FpsCamera)
 
 local S = Config.STUDS_PER_METER
 local R = Config.Rocket
+local RL = Config.Rail
 local SND = Config.Sounds
 
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local fireRemote = remotes:WaitForChild("Fire") :: RemoteEvent
+local railRemote = remotes:WaitForChild("FireRail") :: RemoteEvent
 local combatRemote = remotes:WaitForChild("Combat") :: RemoteEvent
 
 local Weapons = {
 	charges = R.CHARGES,
+	railCharges = RL.CHARGES,
+	weapon = "rocket", -- "rocket" partout, "rail" sur les plateformes Rail
 	fireCd = 0,
+	onDetonated = nil :: (() -> ())?,
 	-- Rappels pour le HUD (branchés par Main).
 	onHit = nil :: ((victimName: string, killed: boolean) -> ())?,
 	onDamaged = nil :: ((fromPos: Vector3, lives: number?) -> ())?,
@@ -57,6 +63,7 @@ end
 
 function Weapons.reset()
 	Weapons.charges = R.CHARGES
+	Weapons.railCharges = RL.CHARGES
 	Weapons.fireCd = 0
 end
 
@@ -99,11 +106,75 @@ local function explodeVisual(v: Visual, pos: Vector3, n: Vector3)
 	end
 end
 
-local function tryFire()
-	if not ctrl or ctrl.frozen or not ctrl.root.Parent or ctrl.character:GetAttribute("CanFire") == false then
+local function canShoot(): boolean
+	return ctrl ~= nil
+		and not ctrl.frozen
+		and ctrl.root.Parent ~= nil
+		and ctrl.character:GetAttribute("CanFire") ~= false
+		and Weapons.fireCd <= 0
+end
+
+local function myTeam(): number?
+	local t = player:GetAttribute("Team")
+	return if type(t) == "number" then t else nil
+end
+
+-- Rail : tir instantané. On montre tout de suite le rayon et la roquette détruite ;
+-- le serveur confirme la touche.
+local function tryFireRail()
+	if not canShoot() then
 		return
 	end
-	if Weapons.fireCd > 0 then
+	if Weapons.railCharges < 1 then
+		Fx.play(SND.EMPTY, 0.3)
+		Weapons.fireCd = 0.2
+		return
+	end
+	Weapons.railCharges -= 1
+	Weapons.fireCd = RL.COOLDOWN
+
+	local eye = ctrl:eyePosition() / S
+	local dir = FpsCamera.rotation().LookVector
+	local yaw = FpsCamera.yaw
+	local hit = Workspace:Raycast(eye * S, dir * RL.RANGE * S, Rocket.shotParams(ctrl.character))
+	local stop = if hit then hit.Position / S else eye + dir * RL.RANGE
+	local claimId, claimPoint = nil, nil
+	if hit then
+		local victim = Players:GetPlayerFromCharacter(hit.Instance:FindFirstAncestorOfClass("Model"))
+		if victim and victim ~= player then
+			claimId, claimPoint = victim.UserId, stop
+		end
+	end
+
+	-- Roquette sur la trajectoire ? (prédiction visuelle, le serveur décide)
+	local list = {}
+	for _, v in own do
+		if not v.exploded then
+			table.insert(list, { key = v, pos = v.pos, vel = v.vel })
+		end
+	end
+	for _, v in others do
+		if not v.exploded then
+			table.insert(list, { key = v, pos = v.pos, vel = v.vel })
+		end
+	end
+	local v, along = Rail.rocketOnRay(eye, dir, (stop - eye).Magnitude, list, 0)
+	if v then
+		stop = eye + dir * (along :: number)
+		explodeVisual(v :: any, stop, Vector3.yAxis)
+	end
+
+	Fx.railBeam(Rail.muzzle(eye, dir, yaw), stop, Rail.color(myTeam()))
+	Fx.playAt(SND.RAIL_FIRE, eye, 0.6, 0.6)
+	railRemote:FireServer(eye, dir, yaw, claimId, claimPoint)
+end
+
+local function tryFire()
+	if Weapons.weapon == "rail" then
+		tryFireRail()
+		return
+	end
+	if not canShoot() then
 		return
 	end
 	if Weapons.charges < 1 then
@@ -132,8 +203,16 @@ end
 -- À chaque image.
 function Weapons.update(dt: number, fireHeld: boolean)
 	Weapons.fireCd = math.max(0, Weapons.fireCd - dt)
+	-- Les deux armes se rechargent en continu, même celle qu'on n'a pas en main.
 	if Weapons.charges < R.CHARGES then
 		Weapons.charges = math.min(R.CHARGES, Weapons.charges + dt / R.RELOAD)
+	end
+	if Weapons.railCharges < RL.CHARGES then
+		Weapons.railCharges = math.min(RL.CHARGES, Weapons.railCharges + dt / RL.RELOAD)
+	end
+	-- L'arme dépend du bloc sous les pieds (gardée en l'air jusqu'au prochain sol).
+	if ctrl then
+		Weapons.weapon = if ctrl.surface == "rail" then "rail" else "rocket"
 	end
 	if fireHeld then
 		tryFire()
@@ -218,6 +297,17 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 		elseif pos then
 			Fx.explosion(pos)
 			shakeFrom(pos)
+		end
+	elseif kind == "rail" then
+		local shooterId, muzzle, stop, team = ...
+		if shooterId ~= player.UserId and typeof(muzzle) == "Vector3" and typeof(stop) == "Vector3" then
+			Fx.railBeam(muzzle, stop, Rail.color(team))
+			Fx.playAt(SND.RAIL_FIRE, muzzle, 0.6, 0.6)
+		end
+	elseif kind == "detonated" then
+		Fx.play(SND.DETONATE, 0.7, 1.6)
+		if Weapons.onDetonated then
+			Weapons.onDetonated()
 		end
 	elseif kind == "push" then
 		local impulse = ...

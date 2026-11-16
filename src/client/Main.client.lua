@@ -1,7 +1,10 @@
 -- Client : déplacement, caméra FPS, endurance, roquettes, HUD du match et gaz.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Input = require(script.Parent.Input)
 local Movement = require(script.Parent.Movement)
@@ -13,6 +16,10 @@ local Gas = require(script.Parent.Gas)
 
 Weapons.onHit = function(_victimName, killed)
 	Hud.showHit(killed)
+end
+Weapons.onDetonated = function()
+	Hud.showHit(false)
+	MatchHud.killfeed("Roquette détruite en vol !", Config.Rail.BEAM_COLOR)
 end
 Weapons.onDamaged = function()
 	Hud.showDamaged()
@@ -63,7 +70,8 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	Input.update(dt)
 	FpsCamera.applyLook(Input.consumeLook())
 	Weapons.update(dt, Input.fireHeld) -- (le tir vérifie lui-même qu'on a un personnage)
-	Hud.updateWeapons(Weapons.charges)
+	FpsCamera.zoomTarget = if ctrl and ctrl.zooming then Config.Rail.ZOOM_FACTOR else 1
+	Hud.updateWeapons(Weapons.charges, Weapons.weapon, Weapons.railCharges)
 	if ctrl and ctrl.root.Parent then
 		FpsCamera.update(dt, ctrl:eyePosition())
 	end

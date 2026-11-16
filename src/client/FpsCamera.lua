@@ -12,6 +12,7 @@ local FpsCamera = {
 	yaw = 0,
 	pitch = 0,
 	zoom = 1, -- multiplicateur du champ de vision (Rail : 0,45)
+	zoomTarget = 1,
 	shake = 0, -- intensité du tremblement (explosions proches)
 }
 
@@ -39,6 +40,9 @@ function FpsCamera.update(dt: number, eye: Vector3)
 	cam.CameraType = Enum.CameraType.Scriptable
 	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	UserInputService.MouseIconEnabled = false
+
+	-- Zoom en douceur (plateforme Rail).
+	FpsCamera.zoom += (FpsCamera.zoomTarget - FpsCamera.zoom) * math.min(1, dt * 14)
 
 	-- FOV horizontal → vertical (Roblox règle le champ vertical).
 	local vp = cam.ViewportSize

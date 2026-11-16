@@ -93,6 +93,27 @@ function Fx.explosion(pos: Vector3)
 	Debris:AddItem(ball, 0.4)
 end
 
+-- Rayon du Rail (positions en mètres) : un trait de néon qui s'efface.
+function Fx.railBeam(from: Vector3, to: Vector3, color: Color3)
+	local a, b = from * S, to * S
+	local len = (b - a).Magnitude
+	if len < 0.01 then
+		return
+	end
+	local beam = fxPart()
+	beam.Name = "RailBeam"
+	beam.Material = Enum.Material.Neon
+	beam.Color = color
+	beam.Size = Vector3.new(0.09 * S, 0.09 * S, len)
+	beam.CFrame = CFrame.lookAt((a + b) / 2, b)
+	beam.Parent = folder
+	TweenService:Create(beam, TweenInfo.new(Config.Rail.BEAM_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+		Size = Vector3.new(0.02 * S, 0.02 * S, len),
+	}):Play()
+	Debris:AddItem(beam, Config.Rail.BEAM_TIME + 0.05)
+end
+
 -- Roquette visible : renvoie la Part à déplacer avec Fx.placeRocket.
 function Fx.newRocket(team: number?): Part
 	local p = fxPart()
