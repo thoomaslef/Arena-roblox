@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Input = require(script.Parent.Input)
-local Movement = require(script.Parent.Movement)
+local Movement = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Movement"))
 local FpsCamera = require(script.Parent.FpsCamera)
 local Hud = require(script.Parent.Hud)
 local Weapons = require(script.Parent.Weapons)

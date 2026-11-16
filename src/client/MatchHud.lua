@@ -252,7 +252,13 @@ function MatchHud.update(gasStage: number, warn: boolean)
 	if state == "waiting" then
 		mid.Text = "ENTRAÎNEMENT"
 		timer.Text = ""
-		status.Text = "En attente d'un adversaire…"
+		local botAt = match:GetAttribute("BotAt")
+		if type(botAt) == "number" then
+			local left = math.max(0, math.ceil(botAt - Workspace:GetServerTimeNow()))
+			status.Text = ("En attente d'un adversaire… un bot arrive dans %d s"):format(left)
+		else
+			status.Text = "En attente d'un adversaire…"
+		end
 		status.TextColor3 = Color3.new(1, 1, 1)
 		return
 	end

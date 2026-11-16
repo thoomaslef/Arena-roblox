@@ -119,6 +119,15 @@ Config.Joust = {
 	MATCH_END_PAUSE = 8.0, -- écran de fin de match avant le match suivant
 }
 
+-- Matchmaking ------------------------------------------------------------------------
+-- Serveurs de 2 places (réglage Max Players = 2 dans Studio, voir README). Seul trop
+-- longtemps : un bot prend la place de l'adversaire, et la rend dès qu'un joueur arrive.
+Config.Match = {
+	BOT_ENABLED = true,
+	BOT_WAIT = 15, -- s d'attente seul avant l'arrivée du bot
+	BOT_SKILL = 2, -- 1 facile, 2 moyen, 3 difficile (niveaux du bot Godot)
+}
+
 Config.Teams = {
 	[0] = { name = "Flics", color = Color3.fromHex("#3B7AFF") },
 	[1] = { name = "Bandits", color = Color3.fromHex("#FF8A29") },

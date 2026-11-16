@@ -9,6 +9,7 @@ local MapBuilder = require(Shared.MapBuilder)
 local CharacterRig = require(Shared.CharacterRig)
 local Combat = require(script.Parent.Combat)
 local Joust = require(script.Parent.Joust)
+local Bots = require(script.Parent.Bot)
 
 local S = Config.STUDS_PER_METER
 local MAP_NAME = "cratere"
@@ -30,13 +31,16 @@ Players.CharacterAutoLoads = false
 local map = MapBuilder.build(require(Shared.Maps:WaitForChild(MAP_NAME)), workspace)
 print(("[Cavale] Map « %s » construite, %d spawns"):format(map.name, #map.spawns))
 
-local function onCharacter(player: Player, character: Model)
+-- Prépare un personnage (joueur ou bot) : posé au spawn, rig de collision, vies, armes.
+local function onCharacter(player: any, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	local root = character:WaitForChild("HumanoidRootPart") :: BasePart
 	-- La taille de l'avatar (HipHeight) n'est juste qu'une fois l'apparence chargée.
-	local t0 = os.clock()
-	while not player:HasAppearanceLoaded() and os.clock() - t0 < 3 do
-		task.wait()
+	if typeof(player) == "Instance" then
+		local t0 = os.clock()
+		while not player:HasAppearanceLoaded() and os.clock() - t0 < 3 do
+			task.wait()
+		end
 	end
 	if player.Character ~= character then
 		return
@@ -65,6 +69,7 @@ for _, player in Players:GetPlayers() do
 	end)
 end
 
+Bots.setSpawner(onCharacter)
 Joust.init(map, Combat)
 
 -- Hors des limites (y < -20 m) → éliminé (« est tombé en service » / « s'est vautré »).
@@ -72,7 +77,7 @@ local killY = Config.Move.KILL_Y * S
 task.spawn(function()
 	while true do
 		task.wait(0.1)
-		for _, player in Players:GetPlayers() do
+		for _, player in Combat.combatants() do
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if root and root.Position.Y < killY and not character:GetAttribute("Falling") then

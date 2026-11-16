@@ -14,7 +14,7 @@ Portage du jeu Godot (`thoomaslef/Arena`). Le cahier des charges complet est dan
 | 4 | Import des maps Godot (Cratère par défaut) | ✅ à tester |
 | 5 | Règles du 1v1 : vies, manches, score, gaz, HUD | ✅ à tester |
 | 6 | Plateformes Rail + Rail (et destruction des roquettes en vol) | ✅ à tester |
-| 7 | Matchmaking 2 joueurs, bot, publication | à faire |
+| 7 | Serveurs de 2 joueurs, bot de remplacement, publication | ✅ à tester |
 
 ## Organisation
 
@@ -24,6 +24,8 @@ src/shared/  → ReplicatedStorage.Shared   (code commun client + serveur)
   Config.lua                 toutes les constantes (en mètres / secondes)
   MapBuilder.lua             construit une map JSON Godot en Parts
   CharacterRig.lua           prépare l'avatar (cylindre de collision, groupes)
+  Movement.lua               contrôleur de déplacement maison (portage de fighter.gd),
+                             utilisé par les joueurs (client) ET par le bot (serveur)
   Rocket.lua                 calculs de la roquette (départ, explosion, poussée)
   Rail.lua                   calculs du Rail (canon, roquette sur la trajectoire)
   JoustRules.lua             règles du 1v1 partagées (rayon du gaz, victoire, fil des éliminations)
@@ -31,10 +33,10 @@ src/shared/  → ReplicatedStorage.Shared   (code commun client + serveur)
 src/server/  → ServerScriptService.Server
   Main.server.lua            construit la map, fait apparaître les joueurs
   Combat.lua                 roquettes côté serveur (validation, explosion, dégâts)
-  Joust.lua                  mode 1v1 : manches, score, gaz, éliminations
+  Joust.lua                  mode 1v1 : manches, score, gaz, éliminations, arrivée du bot
+  Bot.lua                    bot de remplacement (portage de bot_brain.gd)
 src/client/  → StarterPlayer.StarterPlayerScripts.Client
   Main.client.lua            boucle client
-  Movement.lua               contrôleur de déplacement maison (portage de fighter.gd)
   FpsCamera.lua              caméra FPS
   Input.lua                  clavier / souris / manette / tactile
   Hud.lua                    réticule, endurance, roquettes, vies, touches
@@ -115,6 +117,18 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Le serveur accepte la touche vue par le tireur si elle est crédible (cible à moins de ~2 m de sa
   position serveur, rien de solide entre les deux) : pas besoin d'anticiper le ping.
 
+## Bot et serveurs de 2 joueurs (étape 7)
+
+- Chaque serveur accueille **2 joueurs** (réglage à faire une fois, voir « Publier » plus bas) :
+  Roblox remplit les serveurs tout seul, c'est notre file d'attente.
+- Seul sur un serveur pendant **15 s** (`Config.Match.BOT_WAIT`) : un **bot** arrive et le match
+  commence. Dès qu'un vrai joueur rejoint, le bot laisse sa place et un nouveau match démarre.
+- Le bot reprend le cerveau du bot Godot (niveau moyen par défaut, `Config.Match.BOT_SKILL`) :
+  temps de réaction, visée avec anticipation et petite erreur, tirs aux pieds, strafe et sauts
+  d'esquive, sprint, il reste dans le gaz et utilise le Rail sur les plateformes. Il se déplace
+  avec **le même contrôleur** que les joueurs (mêmes vitesses, sauts, endurance).
+- Navigation : PathfindingService de Roblox (le jeu Godot avait sa propre grille).
+
 ## Règles du 1v1 (étape 5)
 
 - **Seul sur le serveur** : entraînement libre (« En attente d'un adversaire… »), pas de gaz.
@@ -128,12 +142,31 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Un joueur qui part : victoire par forfait, retour à l'attente.
 - Sirène / sifflet de début de manche et sons de victoire : à renseigner dans `Config.Sounds`.
 
+## Publier une version test
+
+1. Dans Studio, connecté à Rojo, **Fichier → Publier sur Roblox** (File → Publish to Roblox) :
+   crée une nouvelle expérience, nom « Cavale » par exemple.
+2. **Accueil → Paramètres du jeu** (Game Settings) :
+   - **Places / Lieux** → modifie la place → **Nombre max. de joueurs : 2**
+     (ou sur create.roblox.com : Créations → ton expérience → Places → la place → Accès / serveur) ;
+   - **Avatar** : type **R15** (le contrôleur est réglé pour R15 ; R6 marche aussi) ;
+   - **Sécurité** : rien de spécial à activer.
+3. Sur **create.roblox.com** → ton expérience :
+   - remplis le **questionnaire de maturité** (obligatoire pour rendre le jeu public) : pas de
+     sang, violence cartoon → catégorie Mild / Moderate ;
+   - **Accès** : laisse en **Privé** pour tes tests, ou « Amis » pour inviter des testeurs ;
+     passe en **Public** quand tu es prêt.
+4. Pour tester à plusieurs avant de publier : Studio → **Test → Clients and Servers → 2 Players**.
+5. À chaque nouvelle version : récupère les commits, Rojo met Studio à jour, puis
+   **Fichier → Publier sur Roblox** à nouveau.
+
 ## Que tester et me renvoyer
 
 - Le **ressenti** : vitesse de course, hauteur du saut, plané, sprint, wall-jump.
 - Le **rocket jump** : hauteur gagnée, et la poussée quand l'adversaire tire près de toi
   (test à deux : Test → Clients and Servers → 2 Players).
 - Le **Rail** : zoom sur la plateforme, touche, roquette détruite en vol.
+- Le **bot** : arrivée après 15 s seul, niveau (trop fort / trop faible ?), il se coince ?
 - Une **partie complète à deux** : compte à rebours, changement de côté, gaz, score, fin de match.
 - Les **rampes** montent dans le bon sens ? (sinon dis-le : c'est une ligne à inverser)
 - Bugs éventuels : copie le texte rouge de la fenêtre **Output** (Affichage → Output).

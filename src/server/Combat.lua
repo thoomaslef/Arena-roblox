@@ -40,15 +40,51 @@ combatRemote.Name = "Combat"
 combatRemote.Parent = remotes
 remotes.Parent = ReplicatedStorage
 
+-- Combattants : joueurs + bots. Un bot est une table qui imite un Player (Name, UserId,
+-- Character, Parent, Get/SetAttribute) et reçoit les messages par onCombatEvent.
+Combat.bots = {} :: { any }
+
+function Combat.combatants(): { any }
+	local list: { any } = Players:GetPlayers()
+	for _, b in Combat.bots do
+		table.insert(list, b)
+	end
+	return list
+end
+
+function Combat.ownerOf(model: Instance?): any
+	if not model then
+		return nil
+	end
+	local p = Players:GetPlayerFromCharacter(model)
+	if p then
+		return p
+	end
+	for _, b in Combat.bots do
+		if b.Character == model then
+			return b
+		end
+	end
+	return nil
+end
+
+local function send(target: any, ...)
+	if typeof(target) == "Instance" then
+		combatRemote:FireClient(target, ...)
+	elseif target and target.onCombatEvent then
+		target:onCombatEvent(...)
+	end
+end
+
 -- État d'arme par joueur.
 type Arms = { charges: number, rail: number, t: number, lastFire: number, lastRail: number }
-local arms: { [Player]: Arms } = {}
+local arms: { [any]: Arms } = {}
 
 -- Roquettes en vol.
 type Live = {
 	id: number,
-	owner: Player, -- qui a tiré la roquette (calcule sa propre poussée)
-	shooter: Player, -- à qui reviennent les dégâts (change si un Rail la fait exploser)
+	owner: any, -- qui a tiré la roquette (calcule sa propre poussée)
+	shooter: any, -- à qui reviennent les dégâts (change si un Rail la fait exploser)
 	pos: Vector3,
 	prev: Vector3,
 	vel: Vector3,
@@ -68,11 +104,11 @@ local function world(): RaycastParams
 end
 
 -- Remis à zéro (début de manche, réapparition).
-function Combat.resetArms(player: Player)
+function Combat.resetArms(player: any)
 	arms[player] = { charges = R.CHARGES, rail = RL.CHARGES, t = os.clock(), lastFire = -math.huge, lastRail = -math.huge }
 end
 
-local function armsOf(player: Player): Arms
+local function armsOf(player: any): Arms
 	local a = arms[player]
 	if not a then
 		Combat.resetArms(player)
@@ -115,12 +151,12 @@ function Combat.canFire(player: Player): boolean
 end
 
 -- Applique une touche (1 vie) et prévient le tireur et la victime.
-local function applyHit(victim: Player, attacker: Player, from: Vector3)
+local function applyHit(victim: any, attacker: any, from: Vector3)
 	local killed = Combat.onDamage(victim, attacker)
 	if attacker.Parent then
-		combatRemote:FireClient(attacker, "hit", victim.DisplayName, killed)
+		send(attacker, "hit", victim.DisplayName, killed)
 	end
-	combatRemote:FireClient(victim, "damaged", from, victim:GetAttribute("Lives"))
+	send(victim, "damaged", from, victim:GetAttribute("Lives"))
 end
 
 local function explode(rk: Live, pos: Vector3, n: Vector3)
@@ -128,7 +164,7 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 	local shooter = rk.shooter
 	combatRemote:FireAllClients("explode", rk.id, rk.owner.UserId, pos, n)
 	local wp = world()
-	for _, p in Players:GetPlayers() do
+	for _, p in Combat.combatants() do
 		if not Combat.canBeHit(p) then
 			continue
 		end
@@ -144,14 +180,14 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 		if p ~= rk.owner then
 			local push = Rocket.push(pos, n, feet, wp)
 			if push then
-				combatRemote:FireClient(p, "push", push)
+				send(p, "push", push)
 			end
 		end
 	end
 end
 
 -- Fait exploser une roquette en vol (Rail) : les dégâts reviennent au tireur du Rail.
-function Combat.detonate(id: number, by: Player)
+function Combat.detonate(id: number, by: any)
 	local rk = rockets[id]
 	if rk then
 		rk.shooter = by
@@ -171,7 +207,8 @@ local function isFiniteVec(v: any): boolean
 	return true
 end
 
-fireRemote.OnServerEvent:Connect(function(player, clientId, eye, dir, yaw)
+-- Tir de roquette (joueur via le RemoteEvent, ou bot directement).
+function Combat.fireRocket(player: any, clientId: any, eye: any, dir: any, yaw: any)
 	if type(clientId) ~= "number" or not isFiniteVec(eye) or not isFiniteVec(dir) or type(yaw) ~= "number" or yaw ~= yaw then
 		return
 	end
@@ -191,7 +228,7 @@ fireRemote.OnServerEvent:Connect(function(player, clientId, eye, dir, yaw)
 		ok = (serverEye - eye).Magnitude <= R.SERVER_EYE_TOLERANCE
 	end
 	if not ok then
-		combatRemote:FireClient(player, "reject", clientId, a.charges)
+		send(player, "reject", clientId, a.charges)
 		return
 	end
 	a.charges -= 1
@@ -203,11 +240,12 @@ fireRemote.OnServerEvent:Connect(function(player, clientId, eye, dir, yaw)
 	local rk: Live = { id = nextId, owner = player, shooter = player, pos = spawn, prev = eye, vel = vel, life = 0, params = params }
 	rockets[rk.id] = rk
 	combatRemote:FireAllClients("spawn", rk.id, player.UserId, clientId, spawn, vel, Workspace:GetServerTimeNow())
-end)
+end
+fireRemote.OnServerEvent:Connect(Combat.fireRocket)
 
 -- Rail --------------------------------------------------------------------------------
 -- Dernière fois que le serveur a vu le joueur debout sur une plateforme Rail.
-local railSeen: { [Player]: number } = {}
+local railSeen: { [any]: number } = {}
 
 local function standingSurface(character: Model?): string?
 	local feet = Rocket.feetOf(character)
@@ -222,7 +260,7 @@ end
 task.spawn(function()
 	while true do
 		task.wait(0.15)
-		for _, p in Players:GetPlayers() do
+		for _, p in Combat.combatants() do
 			if standingSurface(p.Character) == "rail" then
 				railSeen[p] = os.clock()
 			end
@@ -231,7 +269,7 @@ task.spawn(function()
 end)
 
 -- Le point vu touché par le tireur est-il crédible côté serveur ?
-local function claimValid(victim: Player, claim: Vector3, eye: Vector3, dir: Vector3): boolean
+local function claimValid(victim: any, claim: Vector3, eye: Vector3, dir: Vector3): boolean
 	local feet = Rocket.feetOf(victim.Character)
 	if not feet then
 		return false
@@ -250,7 +288,8 @@ local function claimValid(victim: Player, claim: Vector3, eye: Vector3, dir: Vec
 	return Workspace:Raycast(eye * Config.STUDS_PER_METER, to * 0.98 * Config.STUDS_PER_METER, world()) == nil
 end
 
-railRemote.OnServerEvent:Connect(function(player, eye, dir, yaw, claimUserId, claimPoint)
+-- Tir de Rail. claimModel / claimPoint : personnage et point que le tireur a vus touchés.
+function Combat.fireRail(player: any, eye: any, dir: any, yaw: any, claimModel: any, claimPoint: any)
 	if not isFiniteVec(eye) or not isFiniteVec(dir) or type(yaw) ~= "number" or yaw ~= yaw or dir.Magnitude < 0.5 then
 		return
 	end
@@ -278,12 +317,12 @@ railRemote.OnServerEvent:Connect(function(player, eye, dir, yaw, claimUserId, cl
 	local params = Rocket.shotParams(player.Character)
 	local hit = Workspace:Raycast(eye * S, dir * RL.RANGE * S, params)
 	local stop = if hit then hit.Position / S else eye + dir * RL.RANGE
-	local hitPlayer = if hit then Players:GetPlayerFromCharacter(hit.Instance:FindFirstAncestorOfClass("Model")) else nil
+	local hitPlayer = if hit then Combat.ownerOf(hit.Instance:FindFirstAncestorOfClass("Model")) else nil
 
 	-- Le tireur a vu une touche : on la retient si elle est crédible (favorise le tireur).
-	local victim: Player? = nil
-	if type(claimUserId) == "number" and isFiniteVec(claimPoint) then
-		local claimed = Players:GetPlayerByUserId(claimUserId)
+	local victim: any = nil
+	if typeof(claimModel) == "Instance" and isFiniteVec(claimPoint) then
+		local claimed = Combat.ownerOf(claimModel)
 		if claimed and claimed ~= player and Combat.canBeHit(claimed) and claimValid(claimed, claimPoint, eye, dir) then
 			victim = claimed
 			stop = claimPoint
@@ -304,7 +343,7 @@ railRemote.OnServerEvent:Connect(function(player, eye, dir, yaw, claimUserId, cl
 	if rid then
 		stop = eye + dir * (along :: number)
 		combatRemote:FireAllClients("rail", player.UserId, muzzle, stop, team)
-		combatRemote:FireClient(player, "detonated")
+		send(player, "detonated")
 		Combat.detonate(rid, player)
 		return
 	end
@@ -312,7 +351,8 @@ railRemote.OnServerEvent:Connect(function(player, eye, dir, yaw, claimUserId, cl
 	if victim then
 		applyHit(victim, player, eye)
 	end
-end)
+end
+railRemote.OnServerEvent:Connect(Combat.fireRail)
 
 RunService.Heartbeat:Connect(function(dt)
 	for id, rk in rockets do
@@ -331,9 +371,10 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
-Players.PlayerRemoving:Connect(function(player)
-	arms[player] = nil
-	railSeen[player] = nil
-end)
+function Combat.forget(who: any)
+	arms[who] = nil
+	railSeen[who] = nil
+end
+Players.PlayerRemoving:Connect(Combat.forget)
 
 return Combat

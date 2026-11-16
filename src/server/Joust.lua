@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local JoustRules = require(Shared.JoustRules)
 local Rocket = require(Shared.Rocket)
+local Bots = require(script.Parent.Bot)
 
 local S = Config.STUDS_PER_METER
 local J = Config.Joust
@@ -237,10 +238,75 @@ function Joust.newRound()
 	end)
 end
 
-function Joust.startMatch()
+-- Bot de remplacement ------------------------------------------------------------------
+local bot = nil -- bot en jeu (ou nil)
+local botToken = 0
+
+local function removeBot()
+	if bot then
+		alive[bot] = nil
+		spawnFor[bot] = nil
+		bot:destroy()
+		bot = nil
+	end
+end
+
+-- Objectif du bot (bot_goal de joust.gd) : rester dans le gaz, sinon aller vers l'adversaire.
+local function botGoal(b): (Vector3?, boolean)
+	local feet = Rocket.feetOf(b.Character)
+	if not feet then
+		return nil, false
+	end
+	local radius = if state == "live" then JoustRules.gasRadius(os.clock() - liveStart, r0) else r0
+	local safe = radius - J.GAS_WARN_DIST - 2
+	local center = map.zoneCenter
+	if JoustRules.distToCenter(feet, center) > safe then
+		return center, true
+	end
+	local i = indexOf(b)
+	local enemy = i and fighters[3 - i]
+	local ef = enemy and alive[enemy] and Rocket.feetOf(enemy.Character)
+	if ef and JoustRules.distToCenter(ef, center) < safe then
+		return ef, false
+	end
+	return center, false
+end
+
+-- Seul sur le serveur : un bot arrive après Config.Match.BOT_WAIT secondes.
+local function scheduleBot()
+	botToken += 1
+	local token = botToken
+	if not Config.Match.BOT_ENABLED then
+		matchFolder:SetAttribute("BotAt", nil)
+		return
+	end
+	matchFolder:SetAttribute("BotAt", Workspace:GetServerTimeNow() + Config.Match.BOT_WAIT)
+	task.delay(Config.Match.BOT_WAIT, function()
+		if token == botToken and state == "waiting" and #Players:GetPlayers() == 1 then
+			Joust.startMatch(true)
+		end
+	end)
+end
+
+function Joust.startMatch(withBot: boolean?)
 	matchToken += 1
-	local list = Players:GetPlayers()
-	if #list < 2 then
+	botToken += 1
+	matchFolder:SetAttribute("BotAt", nil)
+	local list: { any } = Players:GetPlayers()
+	if #list >= 2 then
+		removeBot()
+	elseif #list == 1 and (withBot or bot ~= nil) then
+		if not bot then
+			bot = Bots.create(Combat, 1, Config.Match.BOT_SKILL)
+			bot.targetOf = function(b)
+				local i = indexOf(b)
+				return i and fighters[3 - i]
+			end
+			bot.goalOf = botGoal
+		end
+		list = { list[1], bot }
+	else
+		removeBot()
 		fighters = { nil, nil }
 		setState("waiting")
 		publish()
@@ -249,6 +315,9 @@ function Joust.startMatch()
 				spawnFor[p] = nil
 				p:LoadCharacter()
 			end
+		end
+		if #list == 1 then
+			scheduleBot()
 		end
 		return
 	end
@@ -311,8 +380,23 @@ function Joust.init(builtMap, combat)
 	end)
 
 	Players.PlayerAdded:Connect(function(player)
-		if state == "waiting" then
+		if bot and #Players:GetPlayers() >= 2 then
+			-- Un vrai adversaire arrive : il remplace le bot tout de suite.
+			matchToken += 1
+			removeBot()
+			fighters = { nil, nil }
+			setState("waiting")
+			publish()
+			matchRemote:FireAllClients("info", "UN ADVERSAIRE ARRIVE", "Le bot laisse sa place · nouveau match")
+			task.delay(2, function()
+				if state == "waiting" and #Players:GetPlayers() >= 2 then
+					Joust.startMatch()
+				end
+			end)
+		elseif state == "waiting" then
 			if #Players:GetPlayers() >= 2 then
+				botToken += 1
+				matchFolder:SetAttribute("BotAt", nil)
 				task.delay(2, function()
 					if state == "waiting" and #Players:GetPlayers() >= 2 then
 						Joust.startMatch()
@@ -320,9 +404,10 @@ function Joust.init(builtMap, combat)
 				end)
 			else
 				player:LoadCharacter()
+				scheduleBot()
 			end
 		end
-		-- Sinon : spectateur jusqu'au prochain match (serveurs de 2 à l'étape 7).
+		-- Sinon (3e joueur) : spectateur. Les serveurs sont limités à 2 places (voir README).
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -332,6 +417,10 @@ function Joust.init(builtMap, combat)
 		if i and state ~= "waiting" then
 			matchToken += 1
 			local other = fighters[3 - i]
+			if other == bot then
+				removeBot()
+				other = nil
+			end
 			fighters = { nil, nil }
 			setState("waiting")
 			publish()
@@ -345,6 +434,7 @@ function Joust.init(builtMap, combat)
 				elseif other and other.Parent then
 					spawnFor[other] = nil
 					other:LoadCharacter()
+					scheduleBot()
 				end
 			end)
 		end
@@ -357,6 +447,8 @@ function Joust.init(builtMap, combat)
 	end
 	if #Players:GetPlayers() >= 2 then
 		Joust.startMatch()
+	elseif #Players:GetPlayers() == 1 then
+		scheduleBot()
 	end
 end
 

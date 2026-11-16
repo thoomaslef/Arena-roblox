@@ -138,11 +138,12 @@ local function tryFireRail()
 	local yaw = FpsCamera.yaw
 	local hit = Workspace:Raycast(eye * S, dir * RL.RANGE * S, Rocket.shotParams(ctrl.character))
 	local stop = if hit then hit.Position / S else eye + dir * RL.RANGE
-	local claimId, claimPoint = nil, nil
+	-- Touche vue chez nous : on envoie le personnage touché (joueur ou bot) et le point.
+	local claimModel, claimPoint = nil, nil
 	if hit then
-		local victim = Players:GetPlayerFromCharacter(hit.Instance:FindFirstAncestorOfClass("Model"))
-		if victim and victim ~= player then
-			claimId, claimPoint = victim.UserId, stop
+		local model = hit.Instance:FindFirstAncestorOfClass("Model")
+		if model and model ~= ctrl.character and model:FindFirstChildOfClass("Humanoid") then
+			claimModel, claimPoint = model, stop
 		end
 	end
 
@@ -166,7 +167,7 @@ local function tryFireRail()
 
 	Fx.railBeam(Rail.muzzle(eye, dir, yaw), stop, Rail.color(myTeam()))
 	Fx.playAt(SND.RAIL_FIRE, eye, 0.6, 0.6)
-	railRemote:FireServer(eye, dir, yaw, claimId, claimPoint)
+	railRemote:FireServer(eye, dir, yaw, claimModel, claimPoint)
 end
 
 local function tryFire()

@@ -2,7 +2,8 @@
 -- _jump, _try_walljump). Tout est calculé en MÈTRES puis converti en studs.
 --
 -- Fonctionnement côté Roblox :
---   * le client possède physiquement son personnage : on écrit directement
+--   * le propriétaire physique du personnage (le client pour un joueur, le serveur pour
+--     un bot) écrit directement
 --     AssemblyLinearVelocity à chaque image (PreSimulation) ;
 --   * une VectorForce annule la gravité de Roblox : c'est NOTRE gravité (22 m/s²) qui compte ;
 --   * le cylindre « Collider » bloque contre les murs ; le sol est géré ici par un
