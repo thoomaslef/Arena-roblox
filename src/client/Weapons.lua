@@ -100,7 +100,7 @@ local function explodeVisual(v: Visual, pos: Vector3, n: Vector3)
 end
 
 local function tryFire()
-	if not ctrl or ctrl.frozen or not ctrl.root.Parent then
+	if not ctrl or ctrl.frozen or not ctrl.root.Parent or ctrl.character:GetAttribute("CanFire") == false then
 		return
 	end
 	if Weapons.fireCd > 0 then

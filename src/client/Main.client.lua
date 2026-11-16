@@ -1,4 +1,4 @@
--- Client — étapes 2-3 : déplacement, caméra FPS, endurance, roquettes.
+-- Client : déplacement, caméra FPS, endurance, roquettes, HUD du match et gaz.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,6 +8,8 @@ local Movement = require(script.Parent.Movement)
 local FpsCamera = require(script.Parent.FpsCamera)
 local Hud = require(script.Parent.Hud)
 local Weapons = require(script.Parent.Weapons)
+local MatchHud = require(script.Parent.MatchHud)
+local Gas = require(script.Parent.Gas)
 
 Weapons.onHit = function(_victimName, killed)
 	Hud.showHit(killed)
@@ -66,6 +68,8 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 		FpsCamera.update(dt, ctrl:eyePosition())
 	end
 	Hud.update(ctrl)
+	local stage, warn = Gas.update(dt, if ctrl and ctrl.root.Parent then ctrl.character else nil)
+	MatchHud.update(stage, warn)
 end)
 
 -- Déplacement : avant chaque pas de physique.

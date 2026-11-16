@@ -105,6 +105,9 @@ Config.Joust = {
 	GAS_MIN_RADIUS = 4.0,
 	GAS_WARN_DIST = 4.0,
 	GAS_COLOR = Color3.fromHex("#B8FF2E"),
+	GAS_WALL_EXTRA = 14.0, -- hauteur du mur de gaz au-dessus du plus haut bloc (m)
+	TIE_GRACE = 0.15, -- deux morts à moins de 0,15 s d'écart = égalité
+	MATCH_END_PAUSE = 8.0, -- écran de fin de match avant le match suivant
 }
 
 Config.Teams = {
@@ -122,6 +125,15 @@ Config.Sounds = {
 	EMPTY = "rbxasset://sounds/switch.wav",
 	JUMP = "rbxasset://sounds/action_jump.mp3",
 	LAND = "rbxasset://sounds/action_jump_land.mp3",
+	GAS_BEEP = "rbxasset://sounds/electronicpingshort.wav", -- bip près du bord du gaz
+	GAS_SHRINK = "rbxasset://sounds/button.wav",
+	COUNTDOWN = "rbxasset://sounds/button.wav",
+	-- Début de manche : sirène (Flics) / coup de sifflet (Bandits). À renseigner avec des ID
+	-- du Creator Store ; laissés vides, ils ne jouent rien.
+	SIREN = "",
+	WHISTLE = "",
+	WIN = "",
+	LOSE = "",
 }
 
 -- Groupes de collision ---------------------------------------------------------------

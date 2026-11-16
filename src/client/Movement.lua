@@ -119,7 +119,8 @@ function Movement:_setupPhysics()
 	align.Parent = root
 	self.align = align
 
-	self.yaw = select(2, root.CFrame:ToOrientation())
+	local spawnYaw = self.character:GetAttribute("SpawnYaw")
+	self.yaw = if type(spawnYaw) == "number" then spawnYaw else select(2, root.CFrame:ToOrientation())
 end
 
 function Movement:feetPosition(): Vector3 -- mètres
@@ -254,6 +255,8 @@ function Movement:step(dt: number, input)
 		return
 	end
 	dt = math.min(dt, 1 / 20)
+	-- Compte à rebours : on peut viser, pas bouger ni tirer (attribut posé par le serveur).
+	self.frozen = self.character:GetAttribute("Frozen") == true
 	self.onJump, self.onWalljump, self.onLand, self.onPad, self.onAccel = false, false, false, false, false
 
 	-- Vitesse réelle après la physique de l'image précédente (murs, plafonds).

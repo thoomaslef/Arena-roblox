@@ -99,6 +99,11 @@ function Combat.canBeHit(player: Player): boolean
 	return player.Character ~= nil and (lives == nil or (lives :: number) > 0)
 end
 
+-- Le joueur peut-il tirer ? — le mode pourra le remplacer.
+function Combat.canFire(player: Player): boolean
+	return Combat.canBeHit(player)
+end
+
 local function explode(rk: Live, pos: Vector3, n: Vector3)
 	rockets[rk.id] = nil
 	local shooter = rk.shooter
@@ -162,7 +167,7 @@ fireRemote.OnServerEvent:Connect(function(player, clientId, eye, dir, yaw)
 	local now = os.clock()
 	local feet = Rocket.feetOf(player.Character)
 	local ok = feet ~= nil
-		and Combat.canBeHit(player)
+		and Combat.canFire(player)
 		and a.charges >= R.SERVER_MIN_CHARGE
 		and now - a.lastFire >= R.SERVER_MIN_INTERVAL
 		and player.Character:GetAttribute("CanFire") ~= false

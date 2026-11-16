@@ -12,7 +12,7 @@ Portage du jeu Godot (`thoomaslef/Arena`). Le cahier des charges complet est dan
 | 2 | Contrôleur de déplacement + caméra FPS + endurance | ✅ à tester |
 | 3 | Roquette, explosion, poussée, rocket jump | ✅ à tester |
 | 4 | Import des maps Godot (Cratère par défaut) | ✅ à tester |
-| 5 | Règles du 1v1 : vies, manches, score, gaz, HUD | à faire |
+| 5 | Règles du 1v1 : vies, manches, score, gaz, HUD | ✅ à tester |
 | 6 | Plateformes Rail + Rail | à faire |
 | 7 | Matchmaking 2 joueurs, bot, publication | à faire |
 
@@ -25,10 +25,12 @@ src/shared/  → ReplicatedStorage.Shared   (code commun client + serveur)
   MapBuilder.lua             construit une map JSON Godot en Parts
   CharacterRig.lua           prépare l'avatar (cylindre de collision, groupes)
   Rocket.lua                 calculs de la roquette (départ, explosion, poussée)
+  JoustRules.lua             règles du 1v1 partagées (rayon du gaz, victoire, fil des éliminations)
   Maps/*.json                les 5 maps 1v1 du jeu Godot
 src/server/  → ServerScriptService.Server
   Main.server.lua            construit la map, fait apparaître les joueurs
   Combat.lua                 roquettes côté serveur (validation, explosion, dégâts)
+  Joust.lua                  mode 1v1 : manches, score, gaz, éliminations
 src/client/  → StarterPlayer.StarterPlayerScripts.Client
   Main.client.lua            boucle client
   Movement.lua               contrôleur de déplacement maison (portage de fighter.gd)
@@ -37,6 +39,8 @@ src/client/  → StarterPlayer.StarterPlayerScripts.Client
   Hud.lua                    réticule, endurance, roquettes, vies, touches
   Weapons.lua                tir de roquette (prédiction côté client)
   Fx.lua                     explosions, sons, roquettes visibles
+  MatchHud.lua               score, manche, chrono, messages, fil des éliminations
+  Gas.lua                    mur de gaz lacrymo, bip près du bord
 ```
 
 Échelle : **1 m = 3 studs** (un joueur de 1,8 m ≈ un avatar Roblox).
@@ -96,13 +100,26 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - La poussée (3,4 m de rayon) touche tout le monde, **toi compris** : tire à tes pieds en sautant
   pour un **rocket jump** (aucun dégât sur toi).
 - Le serveur fait foi pour les dégâts ; ta roquette s'affiche et te pousse tout de suite chez toi.
-- En attendant les règles du mode (étape 5) : 3 vies (pastilles), à 0 on réapparaît.
 - Les sons sont ceux intégrés à Roblox, à remplacer dans `Config.Sounds`.
+
+## Règles du 1v1 (étape 5)
+
+- **Seul sur le serveur** : entraînement libre (« En attente d'un adversaire… »), pas de gaz.
+- **À deux** : le match démarre. Le 1er joueur est Flic (bleu), le 2e Bandit (orange).
+- Chaque manche : **3 vies**, compte à rebours **3 · 2 · 1 · GO** (on vise, on ne bouge pas),
+  les spawns **alternent**. Celui qui perd ses 3 vies donne **+1 point** à l'autre.
+- Deux morts presque en même temps (moins de 0,15 s) : **ÉGALITÉ**, la manche est rejouée.
+- **Gaz lacrymo** : 5 s d'attente, puis 3 resserrements (66 s), jusqu'à 4 m de rayon.
+  Hors du gaz = mort. Bip et message quand on est à moins de 4 m du bord.
+- Premier à **11 points avec 2 d'écart** → écran de victoire, puis nouveau match.
+- Un joueur qui part : victoire par forfait, retour à l'attente.
+- Sirène / sifflet de début de manche et sons de victoire : à renseigner dans `Config.Sounds`.
 
 ## Que tester et me renvoyer
 
 - Le **ressenti** : vitesse de course, hauteur du saut, plané, sprint, wall-jump.
 - Le **rocket jump** : hauteur gagnée, et la poussée quand l'adversaire tire près de toi
   (test à deux : Test → Clients and Servers → 2 Players).
+- Une **partie complète à deux** : compte à rebours, changement de côté, gaz, score, fin de match.
 - Les **rampes** montent dans le bon sens ? (sinon dis-le : c'est une ligne à inverser)
 - Bugs éventuels : copie le texte rouge de la fenêtre **Output** (Affichage → Output).
