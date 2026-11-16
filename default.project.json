@@ -1,0 +1,29 @@
+{
+  "name": "Cavale",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$properties": {
+        "EnableMouseLockOption": false,
+        "CharacterUseJumpPower": true,
+        "CharacterJumpPower": 0,
+        "CharacterWalkSpeed": 0
+      },
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    }
+  }
+}
