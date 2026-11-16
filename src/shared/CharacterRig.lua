@@ -46,6 +46,10 @@ local function prepPart(part: BasePart, root: BasePart)
 	end
 	part.CollisionGroup = G.BODY
 	part.CanTouch = false
+	-- Les accessoires (chapeaux, ailes…) ne sont pas des cibles : même hitbox pour tous.
+	if part:FindFirstAncestorOfClass("Accessory") then
+		part.CanQuery = false
+	end
 	if part ~= root then
 		part.Massless = true
 	end

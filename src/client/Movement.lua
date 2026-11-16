@@ -230,13 +230,13 @@ function Movement:_tryWalljump(): boolean
 	return true
 end
 
--- Poussée extérieure (roquette, étape 3) en m/s.
-function Movement:addImpulse(dv: Vector3, knockTime: number?)
-	self.vel += dv
-	self.knockT = math.max(self.knockT, knockTime or 0)
-	if dv.Y > 0 then
-		self.groundLock = GROUND_LOCK
+-- Poussée extérieure (explosion de roquette) en m/s — knockback() de fighter.gd.
+-- Appliquée au prochain pas (la vitesse est relue depuis la physique à chaque pas).
+function Movement:addImpulse(impulse: Vector3)
+	if self.frozen then
+		return
 	end
+	self.pendingImpulse = (self.pendingImpulse or Vector3.zero) + impulse
 end
 
 function Movement:resetState()
@@ -259,6 +259,16 @@ function Movement:step(dt: number, input)
 	-- Vitesse réelle après la physique de l'image précédente (murs, plafonds).
 	self.vel = root.AssemblyLinearVelocity / S
 
+	local impulse = self.pendingImpulse
+	local knocked = false
+	if impulse then
+		self.pendingImpulse = nil
+		self.vel += impulse
+		self.knockT = Config.Rocket.KNOCK_TIME
+		self.boosting = false
+		knocked = impulse.Magnitude > 2.0
+	end
+
 	-- Minuteurs.
 	self.pressBuffer = math.max(0, self.pressBuffer - dt)
 	self.walljumpCd = math.max(0, self.walljumpCd - dt)
@@ -269,6 +279,12 @@ function Movement:step(dt: number, input)
 	local feet = self:feetPosition()
 	local floorNow, groundY, groundN, groundPart = self:_probeFloor(feet.Y)
 	local onFloor = floorNow
+	if knocked and floorNow then
+		-- Au sol, une poussée décolle (sinon l'accroche au sol l'écraserait).
+		self.vel = Vector3.new(self.vel.X, math.max(self.vel.Y, Config.Rocket.KNOCK_MIN_VY), self.vel.Z)
+		self.groundLock = GROUND_LOCK
+		floorNow, onFloor = false, false
+	end
 	if floorNow then
 		self.surfacePart = groundPart
 		self.surface = groundPart and groundPart:GetAttribute("Surface") or "rocket"

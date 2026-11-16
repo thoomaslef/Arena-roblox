@@ -12,7 +12,7 @@ local FpsCamera = {
 	yaw = 0,
 	pitch = 0,
 	zoom = 1, -- multiplicateur du champ de vision (Rail : 0,45)
-	shake = 0, -- intensité du tremblement (explosions, étape 3)
+	shake = 0, -- intensité du tremblement (explosions proches)
 }
 
 function FpsCamera.setYaw(yaw: number)
@@ -50,7 +50,7 @@ function FpsCamera.update(dt: number, eye: Vector3)
 	if FpsCamera.shake > 0 then
 		local a = FpsCamera.shake
 		offset = Vector3.new((math.random() - 0.5) * a, (math.random() - 0.5) * a, 0)
-		FpsCamera.shake = math.max(0, FpsCamera.shake - dt * 4)
+		FpsCamera.shake = math.max(0, FpsCamera.shake - dt * 2.5)
 	end
 	cam.CFrame = CFrame.new(eye) * FpsCamera.rotation() * CFrame.new(offset)
 end

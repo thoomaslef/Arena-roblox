@@ -1,4 +1,4 @@
--- Serveur — étape 2 : map Cratère + apparition des joueurs + chute hors limites.
+-- Serveur — étapes 2-3 : map Cratère, apparition des joueurs, chute hors limites, roquettes.
 -- Les règles du 1v1 (vies, manches, gaz) arriveront à l'étape 5.
 
 local Players = game:GetService("Players")
@@ -8,6 +8,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local MapBuilder = require(Shared.MapBuilder)
 local CharacterRig = require(Shared.CharacterRig)
+local Combat = require(script.Parent.Combat)
 
 local S = Config.STUDS_PER_METER
 local MAP_NAME = "cratere"
@@ -45,6 +46,9 @@ local function onCharacter(player: Player, character: Model)
 		return
 	end
 	CharacterRig.prepare(character)
+	-- Étape 3 : chaque apparition remet 3 vies et 5 roquettes (les manches viendront à l'étape 5).
+	player:SetAttribute("Lives", Config.Joust.LIVES)
+	Combat.resetArms(player)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	local feet = character:GetAttribute("FeetOffset") :: number
 	-- Le spawn donne la position des pieds : on place le centre du corps au-dessus.

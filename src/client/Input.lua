@@ -3,7 +3,7 @@
 --   mobHeld    : bouton de mobilité tenu (Espace / clic droit / A / bouton tactile)
 --   consumeMobPressed() : vrai une seule fois par appui
 --   walk       : marcher (Maj / L3)
---   fireHeld   : tir (clic gauche / RT / bouton tactile) — utilisé à l'étape 3
+--   fireHeld   : tir (clic gauche / RT / bouton tactile)
 --   consumeLook() : rotation de caméra accumulée (dx, dy) en radians
 
 local ContextActionService = game:GetService("ContextActionService")

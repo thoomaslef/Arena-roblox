@@ -10,8 +10,8 @@ Portage du jeu Godot (`thoomaslef/Arena`). Le cahier des charges complet est dan
 | --- | --- | --- |
 | 1 | Projet Rojo, structure du dépôt | ✅ |
 | 2 | Contrôleur de déplacement + caméra FPS + endurance | ✅ à tester |
+| 3 | Roquette, explosion, poussée, rocket jump | ✅ à tester |
 | 4 | Import des maps Godot (Cratère par défaut) | ✅ à tester |
-| 3 | Roquette, explosion, rocket jump | à faire |
 | 5 | Règles du 1v1 : vies, manches, score, gaz, HUD | à faire |
 | 6 | Plateformes Rail + Rail | à faire |
 | 7 | Matchmaking 2 joueurs, bot, publication | à faire |
@@ -24,15 +24,19 @@ src/shared/  → ReplicatedStorage.Shared   (code commun client + serveur)
   Config.lua                 toutes les constantes (en mètres / secondes)
   MapBuilder.lua             construit une map JSON Godot en Parts
   CharacterRig.lua           prépare l'avatar (cylindre de collision, groupes)
+  Rocket.lua                 calculs de la roquette (départ, explosion, poussée)
   Maps/*.json                les 5 maps 1v1 du jeu Godot
 src/server/  → ServerScriptService.Server
   Main.server.lua            construit la map, fait apparaître les joueurs
+  Combat.lua                 roquettes côté serveur (validation, explosion, dégâts)
 src/client/  → StarterPlayer.StarterPlayerScripts.Client
   Main.client.lua            boucle client
   Movement.lua               contrôleur de déplacement maison (portage de fighter.gd)
   FpsCamera.lua              caméra FPS
   Input.lua                  clavier / souris / manette / tactile
-  Hud.lua                    réticule, endurance, infos de réglage
+  Hud.lua                    réticule, endurance, roquettes, vies, touches
+  Weapons.lua                tir de roquette (prédiction côté client)
+  Fx.lua                     explosions, sons, roquettes visibles
 ```
 
 Échelle : **1 m = 3 studs** (un joueur de 1,8 m ≈ un avatar Roblox).
@@ -66,13 +70,14 @@ Chaque fois que tu modifies un fichier (ou que tu récupères un nouveau commit)
 Studio à jour tout seul tant qu'il est connecté. Sauvegarde ta place (`Fichier → Enregistrer`)
 où tu veux sur ton PC : elle n'est pas dans le dépôt, c'est normal.
 
-## Contrôles (étape 2)
+## Contrôles
 
 | Action | PC | Manette | Tactile |
 | --- | --- | --- | --- |
 | Se déplacer | ZQSD / WASD | stick gauche | joystick |
 | Viser | souris | stick droit | glisser à droite de l'écran |
 | Mobilité (saut, plané, sprint, wall-jump) | Espace ou clic droit | A | bouton « SAUT » |
+| Tirer (roquette) | clic gauche | RT | bouton « TIR » |
 | Marcher | Maj | L3 | — |
 
 Bouton de mobilité :
@@ -84,8 +89,20 @@ Bouton de mobilité :
 
 En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comparer avec Godot.
 
+## Roquette (étape 3)
+
+- 5 charges, une recharge toutes les 2 s, 0,26 s mini entre deux tirs (barre orange en 5 segments).
+- Vitesse 36 m/s en ligne droite ; explosion de 1,4 m de rayon = **1 vie** en moins pour l'adversaire.
+- La poussée (3,4 m de rayon) touche tout le monde, **toi compris** : tire à tes pieds en sautant
+  pour un **rocket jump** (aucun dégât sur toi).
+- Le serveur fait foi pour les dégâts ; ta roquette s'affiche et te pousse tout de suite chez toi.
+- En attendant les règles du mode (étape 5) : 3 vies (pastilles), à 0 on réapparaît.
+- Les sons sont ceux intégrés à Roblox, à remplacer dans `Config.Sounds`.
+
 ## Que tester et me renvoyer
 
 - Le **ressenti** : vitesse de course, hauteur du saut, plané, sprint, wall-jump.
+- Le **rocket jump** : hauteur gagnée, et la poussée quand l'adversaire tire près de toi
+  (test à deux : Test → Clients and Servers → 2 Players).
 - Les **rampes** montent dans le bon sens ? (sinon dis-le : c'est une ligne à inverser)
 - Bugs éventuels : copie le texte rouge de la fenêtre **Output** (Affichage → Output).

@@ -76,6 +76,14 @@ Config.Rocket = {
 	PUSH_UP = 0.35,
 	LIFETIME = 5.0,
 	MUZZLE_FORWARD = 0.5,
+	KNOCK_TIME = 0.2, -- juste après une poussée, le sol ne freine pas
+	KNOCK_MIN_VY = 3.5, -- une poussée au sol décolle au moins à cette vitesse
+	-- Tolérances du serveur (anti-triche) : le réseau décale un peu les horloges.
+	SERVER_MIN_CHARGE = 0.9,
+	SERVER_MIN_INTERVAL = 0.2,
+	SERVER_EYE_TOLERANCE = 6.0, -- m entre l'œil annoncé par le client et celui vu par le serveur
+	SHAKE_STRENGTH = 0.45,
+	SHAKE_REACH = 14.0,
 }
 
 Config.Rail = {
@@ -102,6 +110,18 @@ Config.Joust = {
 Config.Teams = {
 	[0] = { name = "Flics", color = Color3.fromHex("#3B7AFF") },
 	[1] = { name = "Bandits", color = Color3.fromHex("#FF8A29") },
+}
+
+-- Sons : sons intégrés à Roblox pour la version test. À remplacer par tes propres
+-- sons (Creator Store → copier l'ID → "rbxassetid://123456").
+Config.Sounds = {
+	ROCKET_FIRE = "rbxasset://sounds/Rocket shot.wav",
+	ROCKET_FLY = "rbxasset://sounds/Rocket whoosh 01.wav",
+	HIT = "rbxasset://sounds/electronicpingshort.wav",
+	KILL = "rbxasset://sounds/electronicpingshort.wav", -- joué plus fort et plus grave
+	EMPTY = "rbxasset://sounds/switch.wav",
+	JUMP = "rbxasset://sounds/action_jump.mp3",
+	LAND = "rbxasset://sounds/action_jump_land.mp3",
 }
 
 -- Groupes de collision ---------------------------------------------------------------
