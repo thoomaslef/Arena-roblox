@@ -137,27 +137,13 @@ Config.Teams = {
 	[1] = { name = "Bandits", color = Color3.fromHex("#FF8A29") },
 }
 
--- Sons : sons intégrés à Roblox pour la version test. À remplacer par tes propres
--- sons (Creator Store → copier l'ID → "rbxassetid://123456").
-Config.Sounds = {
-	ROCKET_FIRE = "rbxasset://sounds/Rocket shot.wav",
-	RAIL_FIRE = "rbxasset://sounds/electronicpingshort.wav", -- joué grave
-	DETONATE = "rbxasset://sounds/electronicpingshort.wav",
-	ROCKET_FLY = "rbxasset://sounds/Rocket whoosh 01.wav",
-	HIT = "rbxasset://sounds/electronicpingshort.wav",
-	KILL = "rbxasset://sounds/electronicpingshort.wav", -- joué plus fort et plus grave
-	EMPTY = "rbxasset://sounds/switch.wav",
-	JUMP = "rbxasset://sounds/action_jump.mp3",
-	LAND = "rbxasset://sounds/action_jump_land.mp3",
-	GAS_BEEP = "rbxasset://sounds/electronicpingshort.wav", -- bip près du bord du gaz
-	GAS_SHRINK = "rbxasset://sounds/button.wav",
-	COUNTDOWN = "rbxasset://sounds/button.wav",
-	-- Début de manche : sirène (Flics) / coup de sifflet (Bandits). À renseigner avec des ID
-	-- du Creator Store ; laissés vides, ils ne jouent rien.
-	SIREN = "",
-	WHISTLE = "",
-	WIN = "",
-	LOSE = "",
+-- Sons ---------------------------------------------------------------------------------
+-- Les sons du jeu Godot sont regroupés dans UNE planche : assets/sfx/cavale_sfx.ogg
+-- (générée par tools/make_sfx.py). Mets-la en ligne sur Roblox (voir README) et colle son
+-- ID ici, par ex. "rbxassetid://123456789". Vide : quelques sons intégrés à Roblox à la place.
+Config.Audio = {
+	SFX_ID = "",
+	VOLUME = 0.7, -- volume général des bruitages
 }
 
 -- Groupes de collision ---------------------------------------------------------------

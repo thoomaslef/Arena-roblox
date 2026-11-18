@@ -15,12 +15,12 @@ local Rocket = require(Shared.Rocket)
 local Rail = require(Shared.Rail)
 
 local Fx = require(script.Parent.Fx)
+local Sfx = require(script.Parent.Sfx)
 local FpsCamera = require(script.Parent.FpsCamera)
 
 local S = Config.STUDS_PER_METER
 local R = Config.Rocket
 local RL = Config.Rail
-local SND = Config.Sounds
 
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -102,6 +102,7 @@ local function explodeVisual(v: Visual, pos: Vector3, n: Vector3)
 	v.exploded = true
 	v.part:Destroy()
 	Fx.explosion(pos)
+	Sfx.playAt("explosion", pos, 0)
 	shakeFrom(pos)
 	if v.own then
 		selfPush(pos, n)
@@ -128,7 +129,7 @@ local function tryFireRail()
 		return
 	end
 	if Weapons.railCharges < 1 then
-		Fx.play(SND.EMPTY, 0.3)
+		Sfx.play("empty", -6)
 		Weapons.fireCd = 0.2
 		return
 	end
@@ -168,7 +169,7 @@ local function tryFireRail()
 	end
 
 	Fx.railBeam(Rail.muzzle(eye, dir, yaw), stop, Rail.color(myTeam()))
-	Fx.playAt(SND.RAIL_FIRE, eye, 0.6, 0.6)
+	Sfx.play("rail", 0)
 	railRemote:FireServer(eye, dir, yaw, claimModel, claimPoint)
 	if Weapons.onFire then
 		Weapons.onFire()
@@ -184,7 +185,7 @@ local function tryFire()
 		return
 	end
 	if Weapons.charges < 1 then
-		Fx.play(SND.EMPTY, 0.3)
+		Sfx.play("empty", -6)
 		Weapons.fireCd = 0.2
 		return
 	end
@@ -202,7 +203,7 @@ local function tryFire()
 	local part = Fx.newRocket(nil)
 	Fx.placeRocket(part, spawn, vel)
 	own[id] = { part = part, pos = spawn, vel = vel, prev = eye, life = 0, own = true, exploded = false, params = params }
-	Fx.playAt(SND.ROCKET_FIRE, spawn, 0.5)
+	Sfx.play("rocket", -3)
 	fireRemote:FireServer(id, eye, dir, yaw)
 	if Weapons.onFire then
 		Weapons.onFire()
@@ -280,7 +281,7 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 		if Weapons.onOtherShot then
 			Weapons.onOtherShot(spawn)
 		end
-		Fx.playAt(SND.ROCKET_FIRE, spawn, 0.5)
+		Sfx.playAt("rocket", spawn, -3)
 	elseif kind == "explode" then
 		local id, shooterId, pos, n = ...
 		if shooterId == player.UserId then
@@ -308,19 +309,20 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 			end
 		elseif pos then
 			Fx.explosion(pos)
+			Sfx.playAt("explosion", pos, 0)
 			shakeFrom(pos)
 		end
 	elseif kind == "rail" then
 		local shooterId, muzzle, stop, team = ...
 		if shooterId ~= player.UserId and typeof(muzzle) == "Vector3" and typeof(stop) == "Vector3" then
 			Fx.railBeam(muzzle, stop, Rail.color(team))
-			Fx.playAt(SND.RAIL_FIRE, muzzle, 0.6, 0.6)
+			Sfx.playAt("rail", muzzle, 0)
 			if Weapons.onOtherShot then
 				Weapons.onOtherShot(muzzle)
 			end
 		end
 	elseif kind == "detonated" then
-		Fx.play(SND.DETONATE, 0.7, 1.6)
+		Sfx.play("hit", -2, 1.5)
 		if Weapons.onDetonated then
 			Weapons.onDetonated()
 		end
@@ -332,9 +334,9 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 	elseif kind == "hit" then
 		local victimName, killed = ...
 		if killed then
-			Fx.play(SND.KILL, 0.9, 0.7)
+			Sfx.play("kill", 0)
 		else
-			Fx.play(SND.HIT, 0.6, 1.2)
+			Sfx.play("hit", 0)
 		end
 		if Weapons.onHit then
 			Weapons.onHit(victimName, killed)

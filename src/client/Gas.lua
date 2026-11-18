@@ -12,6 +12,7 @@ local Rocket = require(Shared.Rocket)
 
 local Fx = require(script.Parent.Fx)
 local MatchHud = require(script.Parent.MatchHud)
+local Sfx = require(script.Parent.Sfx)
 
 local S = Config.STUDS_PER_METER
 local J = Config.Joust
@@ -117,7 +118,7 @@ function Gas.update(dt: number, character: Model?): (number, boolean)
 			beepT -= dt
 			if beepT <= 0 then
 				beepT = 0.5
-				Fx.play(Config.Sounds.GAS_BEEP, 0.4, 0.8)
+				Sfx.play("zone", -6)
 			end
 		end
 	end

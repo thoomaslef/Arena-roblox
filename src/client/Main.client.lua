@@ -15,6 +15,7 @@ local MatchHud = require(script.Parent.MatchHud)
 local Gas = require(script.Parent.Gas)
 local CharacterAnimator = require(script.Parent.CharacterAnimator)
 local Viewmodel = require(script.Parent.Viewmodel)
+local Sfx = require(script.Parent.Sfx)
 
 local aimRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Aim") :: UnreliableRemoteEvent
 local aimSendT = 0
@@ -35,11 +36,14 @@ Weapons.onOtherShot = function(muzzle)
 end
 Weapons.onDamaged = function()
 	Hud.showDamaged()
+	Sfx.play("hurt", -2)
 	FpsCamera.shake = math.max(FpsCamera.shake, 0.6)
 end
 
 local player = Players.LocalPlayer
 local ctrl = nil
+local stride = 0
+local lastWeapon = "rocket"
 
 -- Le joueur ne voit pas son propre corps (vue FPS) : la caméra est dans la tête, les cheveux
 -- et accessoires rempliraient l'écran. LocalTransparencyModifier ne suffit pas pour certains
@@ -92,6 +96,10 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	Weapons.update(dt, Input.fireHeld) -- (le tir vérifie lui-même qu'on a un personnage)
 	FpsCamera.zoomTarget = if ctrl and ctrl.zooming then Config.Rail.ZOOM_FACTOR else 1
 	Hud.updateWeapons(Weapons.charges, Weapons.weapon, Weapons.railCharges)
+	if Weapons.weapon ~= lastWeapon then
+		lastWeapon = Weapons.weapon
+		Sfx.play("switch", -8)
+	end
 	if ctrl and ctrl.root.Parent then
 		FpsCamera.update(dt, ctrl:eyePosition())
 	end
@@ -124,4 +132,33 @@ RunService.PreSimulation:Connect(function(dt)
 		pressed = Input.consumeMobPressed(),
 		walk = Input.walk,
 	})
+
+	-- Sons de nos propres actions (en 2D : on est dans la tête du personnage).
+	if ctrl.onJump then
+		Sfx.play("jump", -8)
+	end
+	if ctrl.onWalljump then
+		Sfx.play("jump", -4, 1.25)
+	end
+	if ctrl.onLand then
+		Sfx.play("land", -6)
+	end
+	if ctrl.onPad then
+		Sfx.play("pad")
+	end
+	if ctrl.onAccel then
+		Sfx.play("accel")
+	end
+	-- Pas : un son tous les 1,6 m en marchant, 2,9 m en courant.
+	local hs = Vector2.new(ctrl.vel.X, ctrl.vel.Z).Magnitude
+	local level = if ctrl.onFloor then Sfx.stepLevel(hs, ctrl.sprinting) else 0
+	if level > 0 then
+		stride += hs * dt
+		if stride > Sfx.stride(level) then
+			stride = 0
+			Sfx.step(level, ctrl.surfacePart)
+		end
+	else
+		stride = 1.2 -- le premier pas tombe vite après l'atterrissage
+	end
 end)

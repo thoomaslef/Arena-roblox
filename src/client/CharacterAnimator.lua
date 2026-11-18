@@ -23,6 +23,7 @@ local Rocket = require(Shared.Rocket)
 
 local Fx = require(script.Parent.Fx)
 local WeaponModels = require(script.Parent.WeaponModels)
+local Sfx = require(script.Parent.Sfx)
 
 local S = Config.STUDS_PER_METER
 local player = Players.LocalPlayer
@@ -68,6 +69,8 @@ type Entry = {
 	kick: number,
 	joints: { [string]: { motor: Motor6D, base: CFrame } },
 	r15: boolean,
+	stride: number,
+	wasGrounded: boolean,
 	weapon: string,
 	guns: { [string]: { WeaponModels.Piece } },
 	shownWeapon: string?,
@@ -170,6 +173,8 @@ local function track(model: Model)
 		kick = 0,
 		joints = joints,
 		r15 = r15,
+		stride = 0,
+		wasGrounded = true,
 		weapon = "rocket",
 		guns = guns,
 		shownWeapon = nil,
@@ -257,6 +262,23 @@ function CharacterAnimator.update(dt: number)
 		local ground = groundPart(feet)
 		local grounded = ground ~= nil and math.abs(v.Y) < 3
 		e.airT = if grounded then 0 else e.airT + dt
+		-- Sons : saut, atterrissage, pas (entendus de loin quand il court ou sprinte).
+		if e.wasGrounded and not grounded and v.Y > 2 then
+			Sfx.playAt("jump", feet, -8)
+		elseif not e.wasGrounded and grounded and e.airT == 0 then
+			Sfx.playAt("land", feet, -4)
+		end
+		e.wasGrounded = grounded
+		local level = if grounded then Sfx.stepLevel(hs) else 0
+		if level > 0 then
+			e.stride += hs * dt
+			if e.stride > Sfx.stride(level) then
+				e.stride = 0
+				Sfx.step(level, ground, feet)
+			end
+		else
+			e.stride = 1.2
+		end
 		-- L'arme dépend du bloc sous les pieds (comme pour nous), gardée en l'air.
 		if grounded and ground then
 			e.weapon = if ground:GetAttribute("Surface") == "rail" then "rail" else "rocket"

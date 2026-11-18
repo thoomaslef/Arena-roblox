@@ -10,8 +10,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 
 local Fx = require(script.Parent.Fx)
+local Sfx = require(script.Parent.Sfx)
 
-local SND = Config.Sounds
 local TEAMS = Config.Teams
 local TOXIC = Config.Joust.GAS_COLOR
 
@@ -179,12 +179,6 @@ local function runCountdown(round: number)
 		return
 	end
 	local sub = ("Manche %d  ·  %d – %d  ·  %s"):format(round, match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0, tostring(match:GetAttribute("MapName") or ""))
-	local i = myIndex()
-	if i == 1 and SND.SIREN ~= "" then
-		Fx.play(SND.SIREN, 0.6)
-	elseif i == 2 and SND.WHISTLE ~= "" then
-		Fx.play(SND.WHISTLE, 0.6)
-	end
 	local shown = -1
 	while true do
 		local left = endTime - Workspace:GetServerTimeNow()
@@ -195,12 +189,13 @@ local function runCountdown(round: number)
 		if n ~= shown then
 			shown = n
 			MatchHud.centerMessage(tostring(n), 1.2, Color3.new(1, 1, 1), sub)
-			Fx.play(SND.COUNTDOWN, 0.5)
+			Sfx.play("beep")
 		end
 		task.wait()
 	end
 	MatchHud.centerMessage("GO", 0.7, Color3.fromRGB(255, 230, 120), sub)
-	Fx.play(SND.COUNTDOWN, 0.7, 1.5)
+	-- Sirène pour les Flics, coup de sifflet pour les Bandits (chacun entend celui de son camp).
+	Sfx.play(if myIndex() == 2 then "whistle" else "siren", -2)
 end
 
 matchRemote.OnClientEvent:Connect(function(kind: string, ...)
@@ -217,6 +212,11 @@ matchRemote.OnClientEvent:Connect(function(kind: string, ...)
 		local col = lighten(TEAMS[winner - 1].color)
 		local title = if i == nil then ("MANCHE : %s"):format(TEAMS[winner - 1].name) elseif i == winner then "MANCHE GAGNÉE" else "MANCHE PERDUE"
 		MatchHud.centerMessage(title, 2.6, col, scoreLine())
+		-- Jingle de manche, sauf la dernière (celui de fin de match suffit).
+		local s1, s2 = match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0
+		if i ~= nil and not (math.max(s1, s2) >= Config.Joust.WIN_SCORE and math.abs(s1 - s2) >= Config.Joust.WIN_GAP) then
+			Sfx.play(if i == winner then "win" else "lose")
+		end
 	elseif kind == "matchEnd" then
 		local winner, s1, s2 = ...
 		local champ = match:GetAttribute("Name" .. winner) or "?"
@@ -224,15 +224,13 @@ matchRemote.OnClientEvent:Connect(function(kind: string, ...)
 		local title = if i == nil then "FIN DU DUEL" elseif i == winner then "VICTOIRE" else "DÉFAITE"
 		MatchHud.centerMessage(title, 7, lighten(TEAMS[winner - 1].color), ("%s remporte le duel  %d – %d"):format(champ, s1, s2))
 		if i ~= nil then
-			local snd = if i == winner then SND.WIN else SND.LOSE
-			if snd ~= "" then
-				Fx.play(snd, 0.7)
-			end
+			Sfx.play(if i == winner then "win" else "lose")
 		end
 	elseif kind == "death" then
 		local pos, text, victimTeam = ...
 		if typeof(pos) == "Vector3" then
 			Fx.explosion(pos)
+			Sfx.playAt("death", pos)
 		end
 		local killerTeam = 1 - (victimTeam or 0)
 		MatchHud.killfeed(text, lighten(TEAMS[killerTeam].color))
@@ -277,7 +275,7 @@ end
 -- Messages de resserrement du gaz (appelé par Gas).
 function MatchHud.gasShrink(stage: number)
 	MatchHud.centerMessage("LE GAZ LACRYMO SE RESSERRE", 1.6, TOXIC, ("La police boucle le quartier  ·  palier %d / 3"):format(stage))
-	Fx.play(SND.GAS_SHRINK, 0.6, 0.8)
+	Sfx.play("zone", -2)
 end
 
 
