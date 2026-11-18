@@ -542,13 +542,15 @@ local bound = setmetatable({}, { __mode = "k" })
 function Lang.bind(obj: Instance, key: string, ...)
 	local args = table.pack(...)
 	bound[obj] = { key = key, args = args }
-	;(obj :: any).Text = Lang.t(key, table.unpack(args, 1, args.n))
+	local target: any = obj
+	target.Text = Lang.t(key, table.unpack(args, 1, args.n))
 end
 
 changed.Event:Connect(function()
 	for obj, b in bound do
 		if obj.Parent then
-			;(obj :: any).Text = Lang.t(b.key, table.unpack(b.args, 1, b.args.n))
+			local target: any = obj
+			target.Text = Lang.t(b.key, table.unpack(b.args, 1, b.args.n))
 		end
 	end
 end)
