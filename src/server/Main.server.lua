@@ -69,6 +69,30 @@ for _, player in Players:GetPlayers() do
 	end)
 end
 
+-- Inclinaison de la visée (haut / bas) : le client l'envoie ~15 fois par seconde, le serveur
+-- la recopie en attribut du personnage pour que les autres voient où il vise.
+local aimRemote = Instance.new("UnreliableRemoteEvent")
+aimRemote.Name = "Aim"
+aimRemote.Parent = ReplicatedStorage:WaitForChild("Remotes")
+local lastAim: { [Player]: number } = {}
+aimRemote.OnServerEvent:Connect(function(player, pitch)
+	if type(pitch) ~= "number" or pitch ~= pitch then
+		return
+	end
+	local now = os.clock()
+	if now - (lastAim[player] or 0) < 0.04 then
+		return
+	end
+	lastAim[player] = now
+	local character = player.Character
+	if character then
+		character:SetAttribute("AimPitch", math.floor(math.clamp(pitch, -1.5, 1.5) * 50 + 0.5) / 50)
+	end
+end)
+Players.PlayerRemoving:Connect(function(player)
+	lastAim[player] = nil
+end)
+
 Bots.setSpawner(onCharacter)
 Joust.init(map, Combat)
 

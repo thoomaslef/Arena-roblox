@@ -17,6 +17,8 @@ local G = Config.Groups
 
 local CharacterRig = {}
 
+CharacterRig.ANIM_KEYS = { "idle", "walk", "run", "jump", "fall" }
+
 local groupsReady = false
 function CharacterRig.setupCollisionGroups()
 	if groupsReady then
@@ -71,6 +73,21 @@ function CharacterRig.prepare(character: Model)
 		end
 	end)
 
+	-- Animations : on garde les ID du script Animate de Roblox (ce sont celles de l'avatar,
+	-- packs d'animations équipés compris), puis on le retire. C'est notre CharacterAnimator
+	-- (client) qui anime les personnages, d'après leurs vrais mouvements.
+	local animate = character:FindFirstChild("Animate")
+	if animate then
+		for _, key in CharacterRig.ANIM_KEYS do
+			local holder = animate:FindFirstChild(key)
+			local anim = holder and holder:FindFirstChildWhichIsA("Animation")
+			if anim and anim.AnimationId ~= "" then
+				character:SetAttribute("Anim_" .. key, anim.AnimationId)
+			end
+		end
+		animate:Destroy()
+	end
+
 	local feet = CharacterRig.feetOffset(humanoid, root)
 	character:SetAttribute("FeetOffset", feet)
 
@@ -101,6 +118,7 @@ function CharacterRig.prepare(character: Model)
 	humanoid.WalkSpeed = 0
 	humanoid.AutoRotate = false
 	humanoid.BreakJointsOnDeath = false
+
 end
 
 return CharacterRig

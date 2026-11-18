@@ -44,6 +44,7 @@ src/client/  → StarterPlayer.StarterPlayerScripts.Client
   Fx.lua                     explosions, sons, roquettes visibles
   MatchHud.lua               score, manche, chrono, messages, fil des éliminations
   Gas.lua                    mur de gaz lacrymo, bip près du bord
+  CharacterAnimator.lua      animations des autres personnages (joueur adverse, bot)
 ```
 
 Échelle : **1 m = 3 studs** (un joueur de 1,8 m ≈ un avatar Roblox).
@@ -142,6 +143,18 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Un joueur qui part : victoire par forfait, retour à l'attente.
 - Sirène / sifflet de début de manche et sons de victoire : à renseigner dans `Config.Sounds`.
 
+## Animations des personnages
+
+- Chaque joueur anime **les autres** personnages d'après leurs vrais mouvements : repos,
+  marche, course, sprint (course accélérée), saut, chute, plané (chute ralentie).
+- Le **bassin** se tourne vers la direction du déplacement (pas latéraux, marche arrière
+  jouée à l'envers) ; le **buste et la tête** suivent la visée haut / bas de l'adversaire ;
+  petit **recul** du buste à chaque tir.
+- Ce sont les animations de l'avatar (packs d'animations équipés compris), sinon celles de
+  Roblox par défaut.
+- Ton propre corps reste invisible (vue FPS) : pour voir les animations, teste à deux
+  (Test → Clients and Servers → 2 Players) ou contre le bot.
+
 ## Publier une version test
 
 1. Dans Studio, connecté à Rojo, **Fichier → Publier sur Roblox** (File → Publish to Roblox) :
@@ -166,6 +179,7 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Le **rocket jump** : hauteur gagnée, et la poussée quand l'adversaire tire près de toi
   (test à deux : Test → Clients and Servers → 2 Players).
 - Le **Rail** : zoom sur la plateforme, touche, roquette détruite en vol.
+- Les **animations** de l'adversaire : course, sauts, plané, il regarde bien où il vise ?
 - Le **bot** : arrivée après 15 s seul, niveau (trop fort / trop faible ?), il se coince ?
 - Une **partie complète à deux** : compte à rebours, changement de côté, gaz, score, fin de match.
 - Les **rampes** montent dans le bon sens ? (sinon dis-le : c'est une ligne à inverser)

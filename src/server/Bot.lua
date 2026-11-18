@@ -526,6 +526,13 @@ function Bot:think(dt: number)
 		held = true -- un appui dure au moins une image
 	end
 
+	-- Inclinaison de la visée, vue par les joueurs (comme l'attribut posé pour eux).
+	self.aimT = (self.aimT or 0) - dt
+	if self.aimT <= 0 and self.Character then
+		self.aimT = 0.07
+		self.Character:SetAttribute("AimPitch", math.floor(self.pitch * 50 + 0.5) / 50)
+	end
+
 	local right = Vector3.new(math.cos(self.yaw), 0, -math.sin(self.yaw))
 	ctrl.yaw = self.yaw
 	ctrl:step(dt, {

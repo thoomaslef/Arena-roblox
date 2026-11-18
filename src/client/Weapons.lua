@@ -34,6 +34,7 @@ local Weapons = {
 	weapon = "rocket", -- "rocket" partout, "rail" sur les plateformes Rail
 	fireCd = 0,
 	onDetonated = nil :: (() -> ())?,
+	onOtherShot = nil :: ((muzzle: Vector3) -> ())?, -- un autre personnage vient de tirer
 	-- Rappels pour le HUD (branchés par Main).
 	onHit = nil :: ((victimName: string, killed: boolean) -> ())?,
 	onDamaged = nil :: ((fromPos: Vector3, lives: number?) -> ())?,
@@ -269,6 +270,9 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 		local pos = spawn + vel * late
 		Fx.placeRocket(part, pos, vel)
 		others[id] = { part = part, pos = pos, vel = vel, prev = pos, life = late, own = false, exploded = false }
+		if Weapons.onOtherShot then
+			Weapons.onOtherShot(spawn)
+		end
 		Fx.playAt(SND.ROCKET_FIRE, spawn, 0.5)
 	elseif kind == "explode" then
 		local id, shooterId, pos, n = ...
@@ -304,6 +308,9 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 		if shooterId ~= player.UserId and typeof(muzzle) == "Vector3" and typeof(stop) == "Vector3" then
 			Fx.railBeam(muzzle, stop, Rail.color(team))
 			Fx.playAt(SND.RAIL_FIRE, muzzle, 0.6, 0.6)
+			if Weapons.onOtherShot then
+				Weapons.onOtherShot(muzzle)
+			end
 		end
 	elseif kind == "detonated" then
 		Fx.play(SND.DETONATE, 0.7, 1.6)
