@@ -8,6 +8,8 @@ local Config = require(Shared.Config)
 local CharacterRig = require(Shared.CharacterRig)
 local Combat = require(script.Parent.Combat)
 require(script.Parent.PlayerSettings) -- réglages des joueurs (touches, sensibilité)
+local MoveGuard = require(script.Parent.MoveGuard)
+Combat.onPush = MoveGuard.notePush
 local Joust = require(script.Parent.Joust)
 local Bots = require(script.Parent.Bot)
 
@@ -48,6 +50,9 @@ local function onCharacter(player: any, character: Model)
 	local feet = CharacterRig.feetOffset(humanoid, root)
 	local spawnCf = Joust.spawnCFrame(player)
 	character:SetAttribute("SpawnYaw", select(2, spawnCf:ToOrientation()))
+	if typeof(player) == "Instance" then
+		MoveGuard.reset(player) -- apparition voulue : l'anti-triche repart de zéro
+	end
 	character:PivotTo(spawnCf + Vector3.new(0, feet + 0.05 * S, 0))
 	CharacterRig.prepare(character)
 

@@ -141,6 +141,9 @@ function Combat.canBeHit(player: Player): boolean
 	return player.Character ~= nil and (lives == nil or (lives :: number) > 0)
 end
 
+-- Appelé quand une explosion pousse un joueur (branché sur l'anti-triche par Main).
+function Combat.onPush(_who: any) end
+
 -- Le joueur peut-il tirer ? — le mode pourra le remplacer.
 function Combat.canFire(player: Player): boolean
 	return Combat.canBeHit(player)
@@ -173,9 +176,10 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 			applyHit(p, shooter, pos)
 		end
 		-- Poussée : tout le monde ; le lanceur calcule la sienne lui-même (réactivité du rocket jump).
-		if p ~= rk.owner then
-			local push = Rocket.push(pos, n, feet, wp)
-			if push then
+		local push = Rocket.push(pos, n, feet, wp)
+		if push then
+			Combat.onPush(p) -- l'anti-triche tolère alors une vitesse bien plus grande
+			if p ~= rk.owner then
 				send(p, "push", push)
 			end
 		end
