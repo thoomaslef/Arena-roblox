@@ -46,6 +46,7 @@ src/client/  → StarterPlayer.StarterPlayerScripts.Client
   Gas.lua                    mur de gaz lacrymo, bip près du bord
   CharacterAnimator.lua      animations des autres personnages (joueur adverse, bot)
   Viewmodel.lua              bras et arme en main à la première personne
+  WeaponModels.lua           modèles low-poly du lance-roquettes et du Rail (vue FPS et 3e personne)
 ```
 
 Échelle : **1 m = 3 studs** (un joueur de 1,8 m ≈ un avatar Roblox).
@@ -151,6 +152,9 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
 - Le **bassin** se tourne vers la direction du déplacement (pas latéraux, marche arrière
   jouée à l'envers) ; le **buste et la tête** suivent la visée haut / bas de l'adversaire ;
   petit **recul** du buste à chaque tir.
+- Les autres personnages tiennent leur **arme en main** (lance-roquettes, ou Rail quand ils
+  sont sur une plateforme Rail), bras en position de tir, canon aligné sur leur visée :
+  on voit de loin quelle arme ils ont et où ils visent.
 - Ce sont les animations de l'avatar (packs d'animations équipés compris), sinon celles de
   Roblox par défaut.
 - **Vue à la première personne** : tu vois tes **bras** et l'**arme en main** (lance-roquettes

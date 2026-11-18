@@ -8,16 +8,21 @@
 --   * le bassin se tourne vers la direction du déplacement (pas latéraux, marche arrière),
 --     le haut du corps reste face à la visée ;
 --   * le buste et la tête suivent l'inclinaison de la visée (attribut AimPitch) ;
---   * petit recul du buste à chaque tir.
+--   * petit recul du buste à chaque tir ;
+--   * l'arme en main (roquette, ou Rail sur une plateforme Rail), bras en position de tir.
 -- Les ID d'animation sont ceux de l'avatar (copiés par CharacterRig), sinon ceux de Roblox.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Rocket = require(Shared.Rocket)
+
+local Fx = require(script.Parent.Fx)
+local WeaponModels = require(script.Parent.WeaponModels)
 
 local S = Config.STUDS_PER_METER
 local player = Players.LocalPlayer
@@ -63,7 +68,25 @@ type Entry = {
 	kick: number,
 	joints: { [string]: { motor: Motor6D, base: CFrame } },
 	r15: boolean,
+	weapon: string,
+	guns: { [string]: { WeaponModels.Piece } },
+	shownWeapon: string?,
 }
+
+-- Bras en position de tir (rotation dans le repère de la pièce parente, au point d'attache) :
+-- bras droit vers l'avant sur la poignée, bras gauche ramené sous le canon.
+local ARM_POSE_R15 = {
+	rshoulder = CFrame.Angles(0, math.rad(15), 0) * CFrame.Angles(math.rad(80), 0, 0),
+	relbow = CFrame.Angles(math.rad(20), 0, 0),
+	lshoulder = CFrame.Angles(0, math.rad(-40), 0) * CFrame.Angles(math.rad(75), 0, 0),
+	lelbow = CFrame.Angles(math.rad(30), 0, 0),
+}
+local ARM_POSE_R6 = {
+	rshoulder = CFrame.Angles(0, math.rad(15), 0) * CFrame.Angles(math.rad(85), 0, 0),
+	lshoulder = CFrame.Angles(0, math.rad(-35), 0) * CFrame.Angles(math.rad(80), 0, 0),
+}
+local ARM_JOINTS = { "rshoulder", "relbow", "lshoulder", "lelbow" }
+local WEAPON_SCALE = 1.0 -- taille réelle (m)
 
 local entries: { [Model]: Entry } = {}
 
@@ -116,8 +139,21 @@ local function track(model: Model)
 		keep("root", joint(model:FindFirstChild("LowerTorso"), "Root"))
 		keep("waist", joint(model:FindFirstChild("UpperTorso"), "Waist"))
 		keep("neck", joint(model:FindFirstChild("Head"), "Neck"))
+		keep("rshoulder", joint(model:FindFirstChild("RightUpperArm"), "RightShoulder"))
+		keep("relbow", joint(model:FindFirstChild("RightLowerArm"), "RightElbow"))
+		keep("lshoulder", joint(model:FindFirstChild("LeftUpperArm"), "LeftShoulder"))
+		keep("lelbow", joint(model:FindFirstChild("LeftLowerArm"), "LeftElbow"))
 	else
-		keep("neck", joint(model:FindFirstChild("Torso"), "Neck"))
+		local torso = model:FindFirstChild("Torso")
+		keep("neck", joint(torso, "Neck"))
+		keep("rshoulder", joint(torso, "Right Shoulder"))
+		keep("lshoulder", joint(torso, "Left Shoulder"))
+	end
+	-- Les deux armes, construites une fois ; on affiche celle en main.
+	local guns = {}
+	for name in WeaponModels.GRIPS do
+		guns[name] = WeaponModels.build(name, WEAPON_SCALE * S, Fx.folder)
+		WeaponModels.setVisible(guns[name], false)
 	end
 	entries[model] = {
 		model = model,
@@ -134,10 +170,13 @@ local function track(model: Model)
 		kick = 0,
 		joints = joints,
 		r15 = r15,
+		weapon = "rocket",
+		guns = guns,
+		shownWeapon = nil,
 	}
 	model.AncestryChanged:Connect(function()
 		if not model:IsDescendantOf(Workspace) then
-			entries[model] = nil
+			CharacterAnimator.forget(model)
 		end
 	end)
 end
@@ -167,13 +206,28 @@ local function pose(e: Entry, key: string, rot: CFrame)
 	end
 end
 
+function CharacterAnimator.forget(model: Model)
+	local e = entries[model]
+	if not e then
+		return
+	end
+	entries[model] = nil
+	for _, pieces in e.guns do
+		for _, piece in pieces do
+			piece.part:Destroy()
+		end
+	end
+end
+
+-- Sol sous les pieds : la Part touchée (ou nil en l'air).
 local worldParams: RaycastParams? = nil
-local function onGround(feet: Vector3): boolean
+local function groundPart(feet: Vector3): BasePart?
 	if not worldParams then
 		worldParams = Rocket.worldParams()
 	end
 	local from = feet + Vector3.new(0, 0.3, 0)
-	return Workspace:Raycast(from * S, Vector3.new(0, -0.6 * S, 0), worldParams) ~= nil
+	local hit = Workspace:Raycast(from * S, Vector3.new(0, -0.6 * S, 0), worldParams)
+	return if hit then hit.Instance :: BasePart else nil
 end
 
 local function wrap(a: number): number
@@ -186,7 +240,7 @@ function CharacterAnimator.update(dt: number)
 	end
 	for model, e in entries do
 		if not e.root.Parent then
-			entries[model] = nil
+			CharacterAnimator.forget(model)
 			continue
 		end
 		local feet = Rocket.feetOf(model)
@@ -204,8 +258,13 @@ function CharacterAnimator.update(dt: number)
 		local v = e.vel
 		local flat = Vector3.new(v.X, 0, v.Z)
 		local hs = flat.Magnitude
-		local grounded = onGround(feet) and math.abs(v.Y) < 3
+		local ground = groundPart(feet)
+		local grounded = ground ~= nil and math.abs(v.Y) < 3
 		e.airT = if grounded then 0 else e.airT + dt
+		-- L'arme dépend du bloc sous les pieds (comme pour nous), gardée en l'air.
+		if grounded and ground then
+			e.weapon = if ground:GetAttribute("Surface") == "rail" then "rail" else "rocket"
+		end
 
 		-- Direction du déplacement par rapport au regard (repère du HumanoidRootPart).
 		local twistTarget, backwards = 0, false
@@ -264,6 +323,59 @@ function CharacterAnimator.update(dt: number)
 		end
 	end
 end
+
+-- Après l'animation (PreSimulation) : bras tenus en position de tir (on remplace la pose
+-- animée des bras), puis l'arme placée dans la main droite, alignée sur la visée.
+RunService.PreSimulation:Connect(function()
+	local parts, cframes = {}, {}
+	for model, e in entries do
+		if not e.root.Parent then
+			continue
+		end
+		local armPose = if e.r15 then ARM_POSE_R15 else ARM_POSE_R6
+		for _, key in ARM_JOINTS do
+			local j = e.joints[key]
+			if j and armPose[key] then
+				j.motor.Transform = CFrame.identity
+				pose(e, key, armPose[key])
+			end
+		end
+
+		if e.shownWeapon ~= e.weapon then
+			for name, pieces in e.guns do
+				WeaponModels.setVisible(pieces, name == e.weapon)
+			end
+			e.shownWeapon = e.weapon
+		end
+		local hand, rot
+		if e.r15 then
+			local rh = model:FindFirstChild("RightHand") :: BasePart?
+			local ut = model:FindFirstChild("UpperTorso") :: BasePart?
+			if rh and ut then
+				hand, rot = rh.Position, ut.CFrame.Rotation
+			end
+		else
+			local ra = model:FindFirstChild("Right Arm") :: BasePart?
+			local torso = model:FindFirstChild("Torso") :: BasePart?
+			if ra and torso then
+				hand = (ra.CFrame * CFrame.new(0, -ra.Size.Y / 2, 0)).Position
+				rot = torso.CFrame.Rotation * CFrame.Angles(e.pitch * 0.6, 0, 0)
+			end
+		end
+		if hand and rot then
+			local k = WEAPON_SCALE * S
+			local grip = WeaponModels.GRIPS[e.weapon][1] * k
+			local weaponCF = CFrame.new(hand) * rot * CFrame.new(-grip) * CFrame.new(0, 0, e.kick * 0.08 * S)
+			for _, piece in e.guns[e.weapon] do
+				table.insert(parts, piece.part)
+				table.insert(cframes, weaponCF * piece.local_)
+			end
+		end
+	end
+	if #parts > 0 then
+		Workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+	end
+end)
 
 -- Recul : le personnage le plus proche de `pos` (m) vient de tirer.
 function CharacterAnimator.kickNear(pos: Vector3)
