@@ -41,11 +41,18 @@ end
 local player = Players.LocalPlayer
 local ctrl = nil
 
--- Le joueur ne voit pas son propre corps (vue FPS).
+-- Le joueur ne voit pas son propre corps (vue FPS) : la caméra est dans la tête, les cheveux
+-- et accessoires rempliraient l'écran. LocalTransparencyModifier ne suffit pas pour certains
+-- accessoires (vêtements « layered ») : on met aussi Transparency à 1. Ce changement fait
+-- sur notre client n'est pas envoyé au serveur : les autres joueurs nous voient normalement.
 local function hideLocalBody(character: Model)
 	local function hide(d: Instance)
-		if d:IsA("BasePart") or d:IsA("Decal") then
-			(d :: any).LocalTransparencyModifier = 1
+		if d:IsA("BasePart") then
+			d.LocalTransparencyModifier = 1
+			d.Transparency = 1
+		elseif d:IsA("Decal") then
+			d.LocalTransparencyModifier = 1
+			d.Transparency = 1
 		end
 	end
 	for _, d in character:GetDescendants() do
