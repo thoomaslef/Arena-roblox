@@ -7,7 +7,6 @@
 --   consumeLook() : rotation de caméra accumulée (dx, dy) en radians
 
 local ContextActionService = game:GetService("ContextActionService")
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
@@ -30,11 +29,28 @@ local touchFire = false
 local keyMob = false
 local keyFire = false
 
-local controls = nil
-task.spawn(function()
-	local playerModule = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
-	controls = (require(playerModule :: ModuleScript) :: any):GetControls()
-end)
+-- Déplacement : on lit nous-mêmes clavier, manette et joystick tactile (sans dépendre du
+-- PlayerModule de Roblox). Clavier : ZQSD (AZERTY) et WASD (QWERTY) en même temps, plus
+-- les flèches.
+local KEYS_FORWARD = { Enum.KeyCode.W, Enum.KeyCode.Z, Enum.KeyCode.Up }
+local KEYS_BACK = { Enum.KeyCode.S, Enum.KeyCode.Down }
+local KEYS_LEFT = { Enum.KeyCode.A, Enum.KeyCode.Q, Enum.KeyCode.Left }
+local KEYS_RIGHT = { Enum.KeyCode.D, Enum.KeyCode.Right }
+local gamepadMove = Vector2.zero
+
+-- Joystick tactile : on pose le doigt dans le tiers gauche de l'écran, il apparaît là.
+local STICK_RADIUS = 60 -- pixels
+local stickTouch: InputObject? = nil
+Input.stick = { active = false, origin = Vector2.zero, pos = Vector2.zero, radius = STICK_RADIUS }
+
+local function anyDown(keys): boolean
+	for _, k in keys do
+		if UserInputService:IsKeyDown(k) then
+			return true
+		end
+	end
+	return false
+end
 
 local function refreshMob()
 	local held = keyMob or touchMob
@@ -79,6 +95,9 @@ UserInputService.InputChanged:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.Thumbstick2 then
 		local p = Vector2.new(input.Position.X, input.Position.Y)
 		gamepadLook = if p.Magnitude > 0.15 then p else Vector2.zero
+	elseif input.KeyCode == Enum.KeyCode.Thumbstick1 then
+		local p = Vector2.new(input.Position.X, input.Position.Y)
+		gamepadMove = if p.Magnitude > 0.15 then p else Vector2.zero
 	end
 end)
 
@@ -89,11 +108,21 @@ UserInputService.TouchStarted:Connect(function(touch, processed)
 	end
 	local cam = workspace.CurrentCamera
 	if cam and touch.Position.X < cam.ViewportSize.X * 0.35 then
-		return -- zone du joystick
+		-- Zone du joystick.
+		if not stickTouch then
+			stickTouch = touch
+			local p = Vector2.new(touch.Position.X, touch.Position.Y)
+			Input.stick.active, Input.stick.origin, Input.stick.pos = true, p, p
+		end
+		return
 	end
 	touchLook[touch] = touch.Position
 end)
 UserInputService.TouchMoved:Connect(function(touch)
+	if touch == stickTouch then
+		Input.stick.pos = Vector2.new(touch.Position.X, touch.Position.Y)
+		return
+	end
 	local last = touchLook[touch]
 	if last then
 		local d = touch.Position - last
@@ -104,6 +133,10 @@ UserInputService.TouchMoved:Connect(function(touch)
 end)
 UserInputService.TouchEnded:Connect(function(touch)
 	touchLook[touch] = nil
+	if touch == stickTouch then
+		stickTouch = nil
+		Input.stick.active = false
+	end
 end)
 
 function Input.setTouchMobility(held: boolean)
@@ -124,11 +157,23 @@ end
 
 -- À appeler une fois par image (avant la caméra).
 function Input.update(dt: number)
-	if controls then
-		local mv: Vector3 = controls:GetMoveVector()
-		local v = Vector2.new(mv.X, -mv.Z)
-		Input.move = if v.Magnitude > 1 then v.Unit else v
+	local v = Vector2.zero
+	-- Clavier (sauf pendant qu'on écrit dans le chat).
+	if not UserInputService:GetFocusedTextBox() then
+		local x = (if anyDown(KEYS_RIGHT) then 1 else 0) - (if anyDown(KEYS_LEFT) then 1 else 0)
+		local y = (if anyDown(KEYS_FORWARD) then 1 else 0) - (if anyDown(KEYS_BACK) then 1 else 0)
+		v = Vector2.new(x, y)
 	end
+	-- Manette.
+	if gamepadMove ~= Vector2.zero then
+		v += gamepadMove
+	end
+	-- Joystick tactile.
+	if Input.stick.active then
+		local d = (Input.stick.pos - Input.stick.origin) / STICK_RADIUS
+		v += Vector2.new(d.X, -d.Y)
+	end
+	Input.move = if v.Magnitude > 1 then v.Unit else v
 	if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
 		local d = UserInputService:GetMouseDelta()
 		local sens = C.MOUSE_SENS * UserSettings():GetService("UserGameSettings").MouseSensitivity

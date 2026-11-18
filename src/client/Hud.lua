@@ -144,6 +144,12 @@ local lastHitTime = 0
 -- Voile rouge quand on est touché.
 local damageFlash = frame({ Name = "DamageFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 40, 40), BackgroundTransparency = 1, ZIndex = 0, Active = false, Parent = gui })
 
+-- Joystick tactile (dessiné là où le pouce se pose, voir Input.stick).
+local stickBase = frame({ Name = "StickBase", Size = UDim2.fromOffset(120, 120), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.6, Visible = false, Parent = gui })
+Instance.new("UICorner", stickBase).CornerRadius = UDim.new(1, 0)
+local stickKnob = frame({ Name = "StickKnob", Size = UDim2.fromOffset(52, 52), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.3, Visible = false, Parent = gui })
+Instance.new("UICorner", stickKnob).CornerRadius = UDim.new(1, 0)
+
 -- Bouton de mobilité tactile (en bas à droite).
 if UserInputService.TouchEnabled then
 	local btn = Instance.new("TextButton")
@@ -251,6 +257,17 @@ function Hud.updateWeapons(charges: number, weapon: string?, railCharges: number
 end
 
 function Hud.update(ctrl)
+	local st = Input.stick
+	stickBase.Visible = st.active
+	stickKnob.Visible = st.active
+	if st.active then
+		local d = st.pos - st.origin
+		if d.Magnitude > st.radius then
+			d = d.Unit * st.radius
+		end
+		stickBase.Position = UDim2.fromOffset(st.origin.X, st.origin.Y)
+		stickKnob.Position = UDim2.fromOffset(st.origin.X + d.X, st.origin.Y + d.Y)
+	end
 	if not ctrl then
 		return
 	end
