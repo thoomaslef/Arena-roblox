@@ -1,4 +1,3 @@
---!strict
 -- Toutes les constantes du jeu, reprises du jeu Godot (scripts/player/fighter.gd,
 -- scripts/weapons/weapons.gd, scripts/modes/joust.gd).
 -- Unités : MÈTRES et SECONDES. La conversion en studs se fait au dernier moment
@@ -131,6 +130,54 @@ Config.Match = {
 	MAPS = { "cratere", "piliers", "terrasses", "fosse", "passerelles" },
 	RANDOM_MAP = true,
 }
+
+-- Progression (XP, niveaux) et classement -------------------------------------------------
+Config.Progress = {
+	XP_MATCH_PLAYED = 40,
+	XP_MATCH_WON = 60,
+	XP_ROUND_WON = 15,
+	XP_HIT = 5, -- par touche sur l'adversaire
+	XP_KILL = 10, -- en plus, pour la touche qui gagne la manche
+	XP_DETONATE = 10, -- roquette détruite au Rail
+	VS_BOT_MULT = 0.5, -- contre le bot, l'XP est réduite de moitié
+	-- XP pour passer du niveau n au niveau n+1 : BASE + STEP × (n - 1).
+	LEVEL_BASE = 100,
+	LEVEL_STEP = 50,
+}
+
+Config.Ranked = {
+	SEASON = 1, -- changer ce numéro lance une nouvelle saison (classement remis à zéro, en douceur)
+	START_RATING = 1000,
+	K = 32, -- vitesse de variation des points (Elo)
+	PLACEMENT_GAMES = 3, -- matchs contre des joueurs avant d'avoir un rang
+	SEASON_CARRY = 0.5, -- nouvelle saison : on garde la moitié de l'écart à 1000
+	LEADERBOARD_SIZE = 10,
+	-- Rangs selon les points (seuil minimal).
+	TIERS = {
+		{ 0, "bronze", Color3.fromRGB(205, 127, 50) },
+		{ 900, "silver", Color3.fromRGB(200, 205, 215) },
+		{ 1100, "gold", Color3.fromRGB(255, 205, 60) },
+		{ 1300, "platinum", Color3.fromRGB(90, 220, 200) },
+		{ 1500, "diamond", Color3.fromRGB(110, 170, 255) },
+		{ 1700, "champion", Color3.fromRGB(255, 90, 140) },
+	},
+}
+
+-- Rang (clé Lang « rank.… » et couleur) pour un nombre de points.
+function Config.rankFor(rating: number): (string, Color3)
+	local key, color = "bronze", Config.Ranked.TIERS[1][3]
+	for _, t in Config.Ranked.TIERS do
+		if rating >= t[1] then
+			key, color = t[2], t[3]
+		end
+	end
+	return key, color
+end
+
+-- XP nécessaire pour passer du niveau `level` au suivant.
+function Config.xpForLevel(level: number): number
+	return Config.Progress.LEVEL_BASE + Config.Progress.LEVEL_STEP * (level - 1)
+end
 
 Config.Teams = {
 	[0] = { name = "Flics", color = Color3.fromHex("#3B7AFF") },

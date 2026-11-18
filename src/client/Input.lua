@@ -15,6 +15,8 @@ local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Lang = require(game:GetService("ReplicatedStorage").Shared:WaitForChild("Lang"))
+local Prefs = require(script.Parent.Prefs)
 
 local C = Config.Camera
 
@@ -78,26 +80,13 @@ local function resolve(name: string): (Enum.KeyCode | Enum.UserInputType)?
 end
 Input.resolve = resolve
 
--- Nom lisible d'une touche, pour le menu.
-local PRETTY = {
-	MouseButton1 = "Clic gauche",
-	MouseButton2 = "Clic droit",
-	MouseButton3 = "Clic molette",
-	Space = "Espace",
-	LeftShift = "Maj gauche",
-	RightShift = "Maj droite",
-	LeftControl = "Ctrl gauche",
-	RightControl = "Ctrl droite",
-	LeftAlt = "Alt gauche",
-	Up = "Flèche haut",
-	Down = "Flèche bas",
-	Left = "Flèche gauche",
-	Right = "Flèche droite",
-	Tab = "Tab",
-	[""] = "—",
-}
+-- Nom lisible d'une touche, pour le menu (traduit : voir Lang, clés « key.… »).
 function Input.pretty(name: string): string
-	return PRETTY[name] or name
+	if name == "" then
+		return "—"
+	end
+	local key = "key." .. name
+	return if Lang.has(key) then Lang.t(key) else name
 end
 
 local function isDown(name: string): boolean
@@ -290,8 +279,8 @@ UserInputService.TouchMoved:Connect(function(touch)
 	if last then
 		local d = touch.Position - last
 		touchLook[touch] = touch.Position
-		lookX += d.X * C.TOUCH_SENS * Input.sensitivity
-		lookY += d.Y * C.TOUCH_SENS * Input.sensitivity
+		lookX += d.X * C.TOUCH_SENS * Prefs.sensTouch
+		lookY += d.Y * C.TOUCH_SENS * Prefs.sensTouch
 	end
 end)
 UserInputService.TouchEnded:Connect(function(touch)
@@ -354,8 +343,8 @@ function Input.update(dt: number)
 		lookY += d.Y * sens
 	end
 	if gamepadLook ~= Vector2.zero then
-		lookX += gamepadLook.X * C.GAMEPAD_SENS * dt
-		lookY -= gamepadLook.Y * C.GAMEPAD_SENS * dt
+		lookX += gamepadLook.X * C.GAMEPAD_SENS * Prefs.sensPad * dt
+		lookY -= gamepadLook.Y * C.GAMEPAD_SENS * Prefs.sensPad * dt
 	end
 end
 

@@ -9,8 +9,8 @@
 --   "countdown", round          début du compte à rebours
 --   "result", winner            1 ou 2 (camp gagnant de la manche), 0 = égalité
 --   "matchEnd", winner, s1, s2
---   "death", pos(m), text, victimTeam
---   "info", title, sub          message central simple (adversaire parti, etc.)
+--   "death", pos(m), cause, killerName, victimName, killerTeam, verbIndex, victimTeam
+--   "info", titleKey, subKey    message central simple (clés de texte Lang)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -74,6 +74,11 @@ local function indexOf(player: Player): number?
 	end
 	return nil
 end
+
+-- Événements pour la progression (branchés par Main sur Profiles).
+function Joust.onMatchStarted(_fighters: { any }) end
+function Joust.onRoundWon(_winner: any, _loser: any) end
+function Joust.onMatchEnded(_winner: any, _loser: any, _forfeit: boolean) end
 
 function Joust.state(): string
 	return state
@@ -147,6 +152,7 @@ local function judge(token: number)
 		round -= 1 -- manche rejouée
 	else
 		score[winner] += 1
+		Joust.onRoundWon(fighters[winner], fighters[3 - winner])
 	end
 	publish()
 	matchRemote:FireAllClients("result", winner)
@@ -158,6 +164,7 @@ local function judge(token: number)
 		if champ then
 			setState("matchEnd")
 			matchRemote:FireAllClients("matchEnd", champ, score[1], score[2])
+			Joust.onMatchEnded(fighters[champ], fighters[3 - champ], false)
 			task.delay(J.MATCH_END_PAUSE, function()
 				if token == matchToken then
 					Joust.startMatch()
@@ -195,17 +202,15 @@ function Joust.kill(player: Player, cause: string, killer: Player?)
 
 	local vi = indexOf(player) :: number
 	local vTeam = vi - 1
-	local text
+	-- Le texte du fil des éliminations est composé par chaque client, dans sa langue (Lang).
+	local killerName, killerTeam = nil, nil
 	if cause == "rocket" and killer then
-		local ki = indexOf(killer) or 1
-		local verbs = JoustRules.KILL_VERBS[ki - 1]
-		text = ("%s %s %s"):format(killer.DisplayName, verbs[math.random(#verbs)], player.DisplayName)
-	elseif cause == "fall" then
-		text = ("%s %s"):format(player.DisplayName, JoustRules.FALL_TEXT[vTeam])
-	else
-		text = ("%s — Gaz lacrymo"):format(player.DisplayName)
+		killerName = killer.DisplayName
+		killerTeam = (indexOf(killer) or 1) - 1
+	elseif cause == "rocket" then
+		cause = "gas"
 	end
-	matchRemote:FireAllClients("death", feet, text, vTeam)
+	matchRemote:FireAllClients("death", feet, cause, killerName, player.DisplayName, killerTeam, math.random(6), vTeam)
 
 	-- Le mort regarde la fin de la manche depuis l'endroit où il est tombé.
 	if character then
@@ -350,7 +355,7 @@ function Joust.loadMap(name: string)
 	r0 = JoustRules.initialRadius(map.sizeCells, map.zoneCenter, spawnsM)
 	matchFolder:SetAttribute("GasR0", r0)
 	matchFolder:SetAttribute("GasCenter", map.zoneCenter)
-	matchFolder:SetAttribute("MapName", map.name)
+	matchFolder:SetAttribute("MapName", name) -- clé de la map (nom traduit par le client)
 end
 
 function Joust.startMatch(withBot: boolean?)
@@ -396,6 +401,7 @@ function Joust.startMatch(withBot: boolean?)
 	fighters[2]:SetAttribute("Team", 1)
 	score = { 0, 0 }
 	round = 0
+	Joust.onMatchStarted(fighters)
 	Joust.newRound()
 end
 
@@ -458,7 +464,7 @@ function Joust.init(combat)
 			fighters = { nil, nil }
 			setState("waiting")
 			publish()
-			matchRemote:FireAllClients("info", "UN ADVERSAIRE ARRIVE", "Le bot laisse sa place · nouveau match")
+			matchRemote:FireAllClients("info", "info.opponent_joining", "info.opponent_joining_sub")
 			task.delay(2, function()
 				if state == "waiting" and #readyPlayers() >= 2 then
 					Joust.startMatch()
@@ -490,6 +496,10 @@ function Joust.init(combat)
 		if i and state ~= "waiting" then
 			matchToken += 1
 			local other = fighters[3 - i]
+			-- Forfait : le match compte (victoire pour celui qui reste), sauf s'il était déjà fini.
+			if state ~= "matchEnd" and other then
+				Joust.onMatchEnded(other, player, true)
+			end
 			if other == bot then
 				removeBot()
 				other = nil
@@ -497,7 +507,7 @@ function Joust.init(combat)
 			fighters = { nil, nil }
 			setState("waiting")
 			publish()
-			matchRemote:FireAllClients("info", "ADVERSAIRE PARTI", "Victoire par forfait · en attente d'un adversaire")
+			matchRemote:FireAllClients("info", "info.opponent_left", "info.opponent_left_sub")
 			task.delay(3, function()
 				if state ~= "waiting" then
 					return

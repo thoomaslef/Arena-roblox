@@ -8,11 +8,13 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Input = require(script.Parent.Input)
+local Lang = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Lang"))
 
 local TouchControls = {}
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "CavaleTouch"
+gui.AutoLocalize = false -- nos textes sont déjà traduits (Lang) : pas de traduction auto de Roblox
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 4
@@ -100,7 +102,8 @@ function TouchControls.update(ctrl, visible: boolean)
 	gui.Enabled = visible and UserInputService.TouchEnabled and ctrl ~= nil
 	if gui.Enabled then
 		local onRail = ctrl.onFloor and ctrl.surface == "rail"
-		mobility.Text = if onRail then "ZOOM" else "SAUT"
+		mobility.Text = Lang.t(if onRail then "touch.zoom" else "touch.jump")
+		fire.Text = Lang.t("touch.fire")
 	end
 end
 

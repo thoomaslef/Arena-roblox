@@ -18,6 +18,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Rocket = require(Shared.Rocket)
+local Lang = require(Shared.Lang)
 
 local S = Config.STUDS_PER_METER
 
@@ -127,7 +128,7 @@ local function strike(player: Player, t: Track, reason: string)
 	t.airSince = nil
 	t.grace = now + 0.5
 	if #t.strikes >= G.KICK_STRIKES then
-		player:Kick("Mouvement anormal détecté (anti-triche). Si c'est une erreur, relance le jeu.")
+		player:Kick(Lang.tl(Lang.fromLocale(player.LocaleId), "kick.move"))
 	end
 end
 

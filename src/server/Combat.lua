@@ -143,6 +143,10 @@ end
 
 -- Appelé quand une explosion pousse un joueur (branché sur l'anti-triche par Main).
 function Combat.onPush(_who: any) end
+-- Événements pour la progression (branchés sur Profiles par Main).
+function Combat.onShot(_shooter: any) end
+function Combat.onHitScored(_attacker: any, _victim: any, _killed: boolean) end
+function Combat.onDetonated(_by: any) end
 
 -- Le joueur peut-il tirer ? — le mode pourra le remplacer.
 function Combat.canFire(player: Player): boolean
@@ -153,6 +157,7 @@ end
 local function applyHit(victim: any, attacker: any, from: Vector3)
 	local victimCharacter = victim.Character -- gardé avant : il disparaît s'il est éliminé
 	local killed = Combat.onDamage(victim, attacker)
+	Combat.onHitScored(attacker, victim, killed)
 	if attacker.Parent then
 		send(attacker, "hit", victim.DisplayName, killed, victimCharacter, victim:GetAttribute("Lives"))
 	end
@@ -233,6 +238,7 @@ function Combat.fireRocket(player: any, clientId: any, eye: any, dir: any, yaw: 
 		return
 	end
 	a.charges -= 1
+	Combat.onShot(player)
 	a.lastFire = now
 
 	local params = Rocket.shotParams(player.Character)
@@ -312,6 +318,7 @@ function Combat.fireRail(player: any, eye: any, dir: any, yaw: any, claimModel: 
 		return
 	end
 	a.rail -= 1
+	Combat.onShot(player)
 	a.lastRail = now
 
 	local S = Config.STUDS_PER_METER
@@ -346,6 +353,7 @@ function Combat.fireRail(player: any, eye: any, dir: any, yaw: any, claimModel: 
 		combatRemote:FireAllClients("rail", player.UserId, muzzle, stop, team)
 		send(player, "detonated")
 		Combat.detonate(rid, player)
+		Combat.onDetonated(player)
 		return
 	end
 	combatRemote:FireAllClients("rail", player.UserId, muzzle, stop, team)

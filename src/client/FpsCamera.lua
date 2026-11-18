@@ -4,6 +4,7 @@
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Prefs = require(script.Parent.Prefs)
 
 local C = Config.Camera
 local MAX_PITCH = math.rad(C.MAX_PITCH_DEG)
@@ -55,7 +56,7 @@ function FpsCamera.update(dt: number, eye: Vector3)
 	local vp = cam.ViewportSize
 	local aspect = if vp.Y > 0 then vp.X / vp.Y else 16 / 9
 	FpsCamera.punch = math.max(0, FpsCamera.punch - dt * 4)
-	local h = math.rad(C.HFOV) * FpsCamera.zoom * (1 - 0.08 * FpsCamera.punch)
+	local h = math.rad(Prefs.fov) * FpsCamera.zoom * (1 - 0.08 * FpsCamera.punch)
 	cam.FieldOfView = math.clamp(math.deg(2 * math.atan(math.tan(h / 2) / aspect)), 1, 120)
 
 	local offset = Vector3.zero

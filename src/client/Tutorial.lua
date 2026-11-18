@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Lang = require(ReplicatedStorage.Shared:WaitForChild("Lang"))
+local UserInputService = game:GetService("UserInputService")
 local Input = require(script.Parent.Input)
 local Sfx = require(script.Parent.Sfx)
 local UiScale = require(script.Parent.UiScale)
@@ -20,19 +22,22 @@ local lobby = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Lobby") ::
 local Tutorial = {}
 
 local TOUCH_NAMES = {
-	forward = "le joystick",
-	back = "le joystick",
-	left = "le joystick",
-	right = "le joystick",
-	mobility = "le bouton SAUT",
-	fire = "le bouton TIR",
+	forward = "tuto.joystick",
+	back = "tuto.joystick",
+	left = "tuto.joystick",
+	right = "tuto.joystick",
+	mobility = "tuto.btn_jump",
+	fire = "tuto.btn_fire",
 }
+
+local function touchOnly(): boolean
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
 
 local function key(id: string): string
 	-- Sur téléphone / tablette (sans clavier) : on parle des boutons à l'écran.
-	local uis = game:GetService("UserInputService")
-	if uis.TouchEnabled and not uis.KeyboardEnabled then
-		return TOUCH_NAMES[id] or id
+	if touchOnly() then
+		return Lang.t(TOUCH_NAMES[id] or id)
 	end
 	local b = Input.bindings[id]
 	local a = Input.pretty(b[1])
@@ -42,99 +47,87 @@ local function key(id: string): string
 	return a
 end
 
--- Étapes : texte (fonction, pour afficher les touches actuelles) et condition de réussite.
+-- Étapes : clé de texte (Lang), touche affichée, et condition de réussite.
 -- `st` garde l'état de suivi (sauts, temps de plané…).
 local STEPS = {
 	{
-		title = "SE DÉPLACER",
+		id = "move",
 		text = function()
-			local uis = game:GetService("UserInputService")
-			if uis.TouchEnabled and not uis.KeyboardEnabled then
-				return "Pose le pouce gauche à gauche de l'écran : le joystick apparaît. Glisse à droite pour viser."
+			if touchOnly() then
+				return Lang.t("tuto.move.touch")
 			end
-			return ("Déplace-toi avec %s, %s, %s, %s. Vise avec la souris."):format(key("forward"), key("left"), key("back"), key("right"))
+			return Lang.t("tuto.move.text", key("forward"), key("left"), key("back"), key("right"))
 		end,
 		done = function(st)
 			return st.moved > 8
 		end,
 	},
 	{
-		title = "MICRO-SAUT",
-		text = function()
-			return ("Appuie BRIÈVEMENT sur %s : petit saut rapide, idéal pour esquiver."):format(key("mobility"))
-		end,
+		id = "micro",
 		done = function(st)
 			return st.lastJumpVy ~= nil and st.lastJumpVy < 4.5
 		end,
 	},
 	{
-		title = "GRAND SAUT",
-		text = function()
-			return ("Garde %s APPUYÉ pour sauter haut (environ 2,6 m)."):format(key("mobility"))
-		end,
+		id = "full",
 		done = function(st)
 			return st.lastJumpVy ~= nil and st.lastJumpVy >= M.JUMP_FULL_VY - 0.3
 		end,
 	},
 	{
-		title = "PLANÉ",
-		text = function()
-			return ("Monte sur le pad bleu, puis garde %s appuyé en retombant : tu planes. La barre jaune, c'est ton endurance."):format(key("mobility"))
-		end,
+		id = "glide",
 		done = function(st)
 			return st.glide > 0.8
 		end,
 	},
 	{
-		title = "SPRINT",
-		text = function()
-			return ("Saute et atterris en GARDANT %s appuyé avec une direction : tu sprintes. (La bande jaune au sol fait sprinter direct.)"):format(key("mobility"))
-		end,
+		id = "sprint",
 		done = function(st)
 			return st.sprint > 1.0
 		end,
 	},
 	{
-		title = "WALL-JUMP",
-		text = function()
-			return ("Saute vers un mur, et appuie sur %s quand tu es contre lui : tu rebondis."):format(key("mobility"))
-		end,
+		id = "wall",
 		done = function(st)
 			return st.walljumps >= 1
 		end,
 	},
 	{
-		title = "ROQUETTE",
-		text = function()
-			return ("Tire avec %s. 5 roquettes, une revient toutes les 2 s. Une touche = 1 vie en moins pour l'adversaire."):format(key("fire"))
-		end,
+		id = "fire",
+		key = "fire",
 		done = function(st)
 			return st.shots >= 2
 		end,
 	},
 	{
-		title = "ROCKET JUMP",
-		text = function()
-			return ("Saute et tire à tes pieds : l'explosion te propulse (sans te blesser). Essaie de monter le plus haut possible !")
-		end,
+		id = "rj",
 		done = function(st)
 			return st.knock > 5
 		end,
 	},
 	{
-		title = "RAIL",
-		text = function()
-			return ("Monte sur la plateforme cyan : ton arme devient le Rail (tir instantané). Garde %s pour zoomer."):format(key("mobility"))
-		end,
+		id = "rail",
 		done = function(st)
 			return st.zoom > 0.5
 		end,
 	},
 }
 
+local function stepTitle(step): string
+	return Lang.t("tuto." .. step.id .. ".title")
+end
+
+local function stepText(step): string
+	if step.text then
+		return step.text()
+	end
+	return Lang.t("tuto." .. step.id .. ".text", key(step.key or "mobility"))
+end
+
 -- Interface -----------------------------------------------------------------------------------
 local gui = Instance.new("ScreenGui")
 gui.Name = "CavaleTutorial"
+gui.AutoLocalize = false -- nos textes sont déjà traduits (Lang) : pas de traduction auto de Roblox
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 5
@@ -185,11 +178,13 @@ local function button(text: string, x: number, primary: boolean): TextButton
 	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 	return b
 end
-local playButton = button("JOUER", 0.04, true)
-local menuButton = button("MENU", 0.52, false)
+local playButton = button("", 0.04, true)
+local menuButton = button("", 0.52, false)
+Lang.bind(playButton, "tuto.play")
+Lang.bind(menuButton, "tuto.menu")
 
 local skip = Instance.new("TextButton")
-skip.Text = "Passer ›"
+Lang.bind(skip, "tuto.skip")
 skip.Font = Enum.Font.GothamBold
 skip.TextSize = 14
 skip.TextColor3 = Color3.fromRGB(190, 195, 210)
@@ -214,18 +209,18 @@ end
 
 local function show()
 	if finished then
-		stepLabel.Text = "TUTORIEL TERMINÉ"
-		titleLabel.Text = "TU ES PRÊT !"
+		stepLabel.Text = Lang.t("tuto.done_step")
+		titleLabel.Text = Lang.t("tuto.done_title")
 		textLabel.Text = ""
 		panel.Size = UDim2.fromOffset(640, 130)
 		playButton.Visible, menuButton.Visible, skip.Visible = true, true, false
 		return
 	end
 	local step = STEPS[index]
-	stepLabel.Text = ("ÉTAPE %d / %d"):format(index, #STEPS)
-	titleLabel.Text = step.title
-	titleLabel.TextColor3 = if step.title == "RAIL" then RAIL else Color3.new(1, 1, 1)
-	textLabel.Text = step.text()
+	stepLabel.Text = Lang.t("tuto.step", index, #STEPS)
+	titleLabel.Text = stepTitle(step)
+	titleLabel.TextColor3 = if step.id == "rail" then RAIL else Color3.new(1, 1, 1)
+	textLabel.Text = stepText(step)
 	panel.Size = UDim2.fromOffset(640, 118)
 	playButton.Visible, menuButton.Visible, skip.Visible = false, false, true
 end
@@ -287,7 +282,8 @@ function Tutorial.update(dt: number, ctrl)
 		return
 	end
 	-- Les touches ont pu changer : on rafraîchit le texte.
-	textLabel.Text = STEPS[index].text()
+	textLabel.Text = stepText(STEPS[index])
+	titleLabel.Text = stepTitle(STEPS[index])
 
 	local feet = ctrl:feetPosition()
 	if lastPos and ctrl.onFloor then

@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 
 local Fx = require(script.Parent.Fx)
+local Lang = require(Shared:WaitForChild("Lang"))
 local Sfx = require(script.Parent.Sfx)
 
 local TEAMS = Config.Teams
@@ -23,6 +24,7 @@ local MatchHud = {}
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "CavaleMatch"
+gui.AutoLocalize = false -- nos textes sont déjà traduits (Lang) : pas de traduction auto de Roblox
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 2
@@ -65,7 +67,7 @@ local function scoreBox(side: number): (Frame, TextLabel, TextLabel)
 		TextSize = 15,
 		TextXAlignment = if side == 0 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Right,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Text = TEAMS[side].name,
+		Text = Lang.teamName(side),
 		Parent = f,
 	})
 	local num = label({
@@ -87,6 +89,7 @@ local status = label({ Size = UDim2.fromOffset(600, 24), AnchorPoint = Vector2.n
 
 -- Message central -------------------------------------------------------------------
 local centerTitle = label({ Size = UDim2.fromOffset(900, 70), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.32), TextSize = 54, Font = Enum.Font.GothamBlack, Text = "", TextTransparency = 1, TextStrokeTransparency = 1, Parent = gui })
+local rewardsLabel = label({ Size = UDim2.fromOffset(900, 80), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.32, 70), TextSize = 22, Font = Enum.Font.GothamBlack, TextColor3 = Color3.fromRGB(255, 220, 110), Text = "", TextTransparency = 1, TextStrokeTransparency = 1, Parent = gui })
 local centerSub = label({ Size = UDim2.fromOffset(900, 30), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.32, 46), TextSize = 20, Text = "", TextTransparency = 1, TextStrokeTransparency = 1, Parent = gui })
 local messageToken = 0
 
@@ -178,7 +181,7 @@ local function runCountdown(round: number)
 	if type(endTime) ~= "number" then
 		return
 	end
-	local sub = ("Manche %d  ·  %d – %d  ·  %s"):format(round, match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0, tostring(match:GetAttribute("MapName") or ""))
+	local sub = Lang.t("m.countdown_sub", round, match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0, Lang.mapName(match:GetAttribute("MapName")))
 	local shown = -1
 	while true do
 		local left = endTime - Workspace:GetServerTimeNow()
@@ -193,7 +196,7 @@ local function runCountdown(round: number)
 		end
 		task.wait()
 	end
-	MatchHud.centerMessage("GO", 0.7, Color3.fromRGB(255, 230, 120), sub)
+	MatchHud.centerMessage(Lang.t("m.go"), 0.7, Color3.fromRGB(255, 230, 120), sub)
 	-- Sirène pour les Flics, coup de sifflet pour les Bandits (chacun entend celui de son camp).
 	Sfx.play(if myIndex() == 2 then "whistle" else "siren", -2)
 end
@@ -205,12 +208,12 @@ matchRemote.OnClientEvent:Connect(function(kind: string, ...)
 	elseif kind == "result" then
 		local winner = ...
 		if winner == 0 then
-			MatchHud.centerMessage("ÉGALITÉ", 2.4, Color3.new(1, 1, 1), "La manche est rejouée")
+			MatchHud.centerMessage(Lang.t("m.tie"), 2.4, Color3.new(1, 1, 1), Lang.t("m.tie_sub"))
 			return
 		end
 		local i = myIndex()
 		local col = lighten(TEAMS[winner - 1].color)
-		local title = if i == nil then ("MANCHE : %s"):format(TEAMS[winner - 1].name) elseif i == winner then "MANCHE GAGNÉE" else "MANCHE PERDUE"
+		local title = if i == nil then Lang.t("m.round_team", Lang.teamName(winner - 1)) elseif i == winner then Lang.t("m.round_won") else Lang.t("m.round_lost")
 		MatchHud.centerMessage(title, 2.6, col, scoreLine())
 		-- Jingle de manche, sauf la dernière (celui de fin de match suffit).
 		local s1, s2 = match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0
@@ -221,23 +224,66 @@ matchRemote.OnClientEvent:Connect(function(kind: string, ...)
 		local winner, s1, s2 = ...
 		local champ = match:GetAttribute("Name" .. winner) or "?"
 		local i = myIndex()
-		local title = if i == nil then "FIN DU DUEL" elseif i == winner then "VICTOIRE" else "DÉFAITE"
-		MatchHud.centerMessage(title, 7, lighten(TEAMS[winner - 1].color), ("%s remporte le duel  %d – %d"):format(champ, s1, s2))
+		local title = if i == nil then Lang.t("m.duel_over") elseif i == winner then Lang.t("m.victory") else Lang.t("m.defeat")
+		MatchHud.centerMessage(title, 7, lighten(TEAMS[winner - 1].color), Lang.t("m.champ", champ, s1, s2))
 		if i ~= nil then
 			Sfx.play(if i == winner then "win" else "lose")
 		end
 	elseif kind == "death" then
-		local pos, text, victimTeam = ...
+		local pos, cause, killerName, victimName, killerTeam, verbIndex, victimTeam = ...
 		if typeof(pos) == "Vector3" then
 			Fx.explosion(pos)
 			Sfx.playAt("death", pos)
 		end
-		local killerTeam = 1 - (victimTeam or 0)
-		MatchHud.killfeed(text, lighten(TEAMS[killerTeam].color))
+		local text = Lang.killText(cause, killerName, victimName or "?", killerTeam, verbIndex, victimTeam)
+		local colorTeam = if killerTeam ~= nil then killerTeam else 1 - (victimTeam or 0)
+		MatchHud.killfeed(text, lighten(TEAMS[colorTeam].color))
 	elseif kind == "info" then
-		local title, sub = ...
-		MatchHud.centerMessage(title, 3, Color3.new(1, 1, 1), sub)
+		local titleKey, subKey = ...
+		MatchHud.centerMessage(Lang.t(titleKey), 3, Color3.new(1, 1, 1), Lang.t(subKey))
 	end
+end)
+
+-- Nom d'un combattant dans le bandeau, avec son niveau s'il en a un (pas les bots).
+local function fighterName(index: number, team: number): string
+	local name = match:GetAttribute("Name" .. index)
+	if type(name) ~= "string" or name == "" then
+		return Lang.teamName(team)
+	end
+	local userId = match:GetAttribute("UserId" .. index)
+	local p = if type(userId) == "number" and userId > 0 then Players:GetPlayerByUserId(userId) else nil
+	local level = p and p:GetAttribute("Level")
+	if level then
+		return ("%s  ·  %d"):format(name, level)
+	end
+	return name
+end
+
+-- Récompenses de fin de match (XP, niveau, classement) : sous VICTOIRE / DÉFAITE.
+local rewardsRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Rewards") :: RemoteEvent
+rewardsRemote.OnClientEvent:Connect(function(r)
+	if type(r) ~= "table" then
+		return
+	end
+	local lines = { Lang.t("rw.xp", r.xp or 0) }
+	if r.levelUp then
+		table.insert(lines, Lang.t("rw.levelup", r.level or 1))
+	end
+	if r.vsBot then
+		table.insert(lines, Lang.t("rw.vs_bot"))
+	elseif type(r.ratingDelta) == "number" then
+		local rankName = if r.rankKey and r.rankKey ~= "unranked" then Lang.t("rank." .. r.rankKey) else Lang.t("menu.unranked", math.max(1, Config.Ranked.PLACEMENT_GAMES - ((player:GetAttribute("RankedGames") or 0))))
+		table.insert(lines, Lang.t("rw.rating", r.ratingDelta, rankName))
+	end
+	rewardsLabel.Text = table.concat(lines, "\n")
+	rewardsLabel.TextTransparency = 0
+	rewardsLabel.TextStrokeTransparency = 0.4
+	if r.levelUp then
+		Sfx.play("win", -2, 1.3)
+	end
+	task.delay(7, function()
+		TweenService:Create(rewardsLabel, TweenInfo.new(0.5), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+	end)
 end)
 
 -- Mise à jour à chaque image.
@@ -245,29 +291,29 @@ function MatchHud.update(gasStage: number, warn: boolean)
 	-- Rien du match à l'écran dans le menu ou le tutoriel.
 	gui.Enabled = player:GetAttribute("Mode") == "play"
 	local state = match:GetAttribute("State")
-	name1.Text = match:GetAttribute("Name1") ~= "" and match:GetAttribute("Name1") or TEAMS[0].name
-	name2.Text = match:GetAttribute("Name2") ~= "" and match:GetAttribute("Name2") or TEAMS[1].name
+	name1.Text = fighterName(1, 0)
+	name2.Text = fighterName(2, 1)
 	num1.Text = tostring(match:GetAttribute("Score1") or 0)
 	num2.Text = tostring(match:GetAttribute("Score2") or 0)
 	if state == "waiting" then
-		mid.Text = "ENTRAÎNEMENT"
+		mid.Text = Lang.t("m.training")
 		timer.Text = ""
 		local botAt = match:GetAttribute("BotAt")
 		if type(botAt) == "number" then
 			local left = math.max(0, math.ceil(botAt - Workspace:GetServerTimeNow()))
-			status.Text = ("En attente d'un adversaire… un bot arrive dans %d s"):format(left)
+			status.Text = Lang.t("m.waiting_bot", left)
 		else
-			status.Text = "En attente d'un adversaire…"
+			status.Text = Lang.t("m.waiting")
 		end
 		status.TextColor3 = Color3.new(1, 1, 1)
 		return
 	end
-	mid.Text = ("Manche %d  ·  Gaz %d/3"):format(match:GetAttribute("Round") or 0, gasStage)
+	mid.Text = Lang.t("m.round_gas", match:GetAttribute("Round") or 0, gasStage)
 	local t = MatchHud.roundTime()
 	local secs = math.floor(t)
 	timer.Text = if state == "live" then ("%d:%02d"):format(secs // 60, secs % 60) else ""
 	if warn then
-		status.Text = "GAZ LACRYMO — revenez vers le centre !"
+		status.Text = Lang.t("m.gas_warn")
 		status.TextColor3 = TOXIC
 	else
 		status.Text = ""
@@ -276,7 +322,7 @@ end
 
 -- Messages de resserrement du gaz (appelé par Gas).
 function MatchHud.gasShrink(stage: number)
-	MatchHud.centerMessage("LE GAZ LACRYMO SE RESSERRE", 1.6, TOXIC, ("La police boucle le quartier  ·  palier %d / 3"):format(stage))
+	MatchHud.centerMessage(Lang.t("m.gas_shrink"), 1.6, TOXIC, Lang.t("m.gas_shrink_sub", stage))
 	Sfx.play("zone", -2)
 end
 

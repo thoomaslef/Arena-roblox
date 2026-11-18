@@ -199,6 +199,33 @@ Le serveur vérifie les déplacements (`src/server/MoveGuard.lua`) : vitesse au-
 un mur. Le joueur est remis à sa dernière position valide ; expulsé après trop d'infractions.
 Les tirs étaient déjà vérifiés (charges, cadence, position, touches crédibles).
 
+## Niveaux, XP et classement
+
+- **XP** à chaque match (`Config.Progress`) : match joué, match gagné, manche gagnée, touche,
+  élimination, roquette détruite au Rail. **Contre le bot, l'XP est divisée par deux.**
+- **Niveaux** : il faut 100 XP pour le niveau 2, puis 50 de plus à chaque niveau.
+- **Classé (saison)** : chaque match **contre un joueur** fait gagner ou perdre des points
+  (système Elo, départ à 1000). Après **3 matchs de placement**, on reçoit un rang :
+  Bronze, Argent (900), Or (1100), Platine (1300), Diamant (1500), Champion (1700).
+  Un forfait compte comme une défaite.
+- **Nouvelle saison** : changer `Config.Ranked.SEASON` ; chacun garde la moitié de son écart
+  à 1000 et refait ses matchs de placement.
+- **Écran d'accueil** : carte du joueur (niveau, XP, rang, statistiques) et **classement
+  mondial** (top 10). **Fin de match** : XP gagnée, montée de niveau, points classés.
+- Sauvegarde : DataStore (comme les réglages : dans Studio, il faut l'accès aux services
+  d'API, voir « Réglages »).
+
+## Langues
+
+Le jeu est en **français et en anglais** (`src/shared/Lang.lua`) : langue du compte Roblox
+par défaut, modifiable dans **Réglages → JEU → Langue**. Tous les textes passent par ce
+module : pour ajouter une langue, copier le bloc `STRINGS.en` et le traduire.
+
+## Page du jeu (icône, miniatures, questionnaire)
+
+Voir [`docs/PAGE_DU_JEU.md`](docs/PAGE_DU_JEU.md) : descriptions FR / EN, icône et miniatures
+prêtes dans `assets/store/`, réponses au questionnaire de maturité, liste avant publication.
+
 ## Sons
 
 Les bruitages sont **ceux du jeu Godot** (générés par code, comme dans `autoload/sfx.gd`),
@@ -218,6 +245,9 @@ Pour régénérer la planche après avoir modifié un son : `python3 tools/make_
 (nécessite Python et numpy), puis remettre le fichier en ligne et changer l'ID.
 
 ## Réglages (touche P ou bouton ⚙)
+
+Deux onglets : **COMMANDES** (touches, sensibilité souris) et **JEU** (volume des sons,
+champ de vision, sensibilités tactile et manette, forme et couleur du réticule, langue).
 
 - **Touches** : 2 touches par action (avancer, reculer, gauche, droite, mobilité, tir,
   marcher). Clique sur une case puis appuie sur la nouvelle touche (ou un bouton de

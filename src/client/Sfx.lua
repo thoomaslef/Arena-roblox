@@ -19,6 +19,7 @@ local Config = require(Shared.Config)
 local Atlas = require(Shared.SfxAtlas)
 
 local Fx = require(script.Parent.Fx)
+local Prefs = require(script.Parent.Prefs)
 
 local S = Config.STUDS_PER_METER
 local A = Config.Audio
@@ -66,7 +67,7 @@ local function makeSound(name: string, volumeDb: number?, pitch: number?): (Soun
 		speed *= fb[2]
 	end
 	-- Volume en dB (comme dans Godot) → volume linéaire Roblox.
-	s.Volume = A.VOLUME * 10 ^ ((volumeDb or 0) / 20)
+	s.Volume = A.VOLUME * Prefs.volume * 10 ^ ((volumeDb or 0) / 20)
 	s.PlaybackSpeed = speed
 	return s, duration
 end

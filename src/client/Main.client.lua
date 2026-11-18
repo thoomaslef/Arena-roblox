@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Lang = require(ReplicatedStorage.Shared:WaitForChild("Lang"))
 
 local Input = require(script.Parent.Input)
 local Movement = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Movement"))
@@ -34,7 +35,7 @@ Weapons.onHit = function(_victimName, killed, victimModel, livesLeft)
 end
 Weapons.onDetonated = function()
 	Hud.showHit(false)
-	MatchHud.killfeed("Roquette détruite en vol !", Config.Rail.BEAM_COLOR)
+	MatchHud.killfeed(Lang.t("m.detonated"), Config.Rail.BEAM_COLOR)
 end
 Weapons.onFire = function()
 	Viewmodel.kick()

@@ -7,10 +7,46 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local CharacterRig = require(Shared.CharacterRig)
 local Combat = require(script.Parent.Combat)
+local Joust = require(script.Parent.Joust)
 require(script.Parent.PlayerSettings) -- réglages des joueurs (touches, sensibilité)
 local MoveGuard = require(script.Parent.MoveGuard)
 Combat.onPush = MoveGuard.notePush
-local Joust = require(script.Parent.Joust)
+
+-- Progression (XP, niveaux, classement).
+local Profiles = require(script.Parent.Profiles)
+local PR = Config.Progress
+local function isPlayer(p: any): boolean
+	return typeof(p) == "Instance" and p:IsA("Player")
+end
+local function multAgainst(opponent: any): number
+	return if isPlayer(opponent) then 1 else PR.VS_BOT_MULT
+end
+Combat.onShot = function(shooter)
+	Profiles.stat(shooter, "shots")
+end
+Combat.onHitScored = function(attacker, victim, killed)
+	Profiles.stat(attacker, "hits")
+	Profiles.addXP(attacker, PR.XP_HIT + (if killed then PR.XP_KILL else 0), multAgainst(victim))
+	if killed then
+		Profiles.stat(attacker, "kills")
+	end
+end
+Combat.onDetonated = function(by)
+	Profiles.stat(by, "detonations")
+	Profiles.addXP(by, PR.XP_DETONATE)
+end
+Joust.onMatchStarted = function(fighters)
+	Profiles.matchStarted(fighters)
+end
+Joust.onRoundWon = function(winner, loser)
+	Profiles.stat(winner, "roundsWon")
+	Profiles.stat(winner, "rounds")
+	Profiles.stat(loser, "rounds")
+	Profiles.addXP(winner, PR.XP_ROUND_WON, multAgainst(loser))
+end
+Joust.onMatchEnded = function(winner, loser, forfeit)
+	Profiles.matchEnded(winner, loser, forfeit)
+end
 local Bots = require(script.Parent.Bot)
 
 local S = Config.STUDS_PER_METER

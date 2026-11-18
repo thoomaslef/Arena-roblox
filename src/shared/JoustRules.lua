@@ -77,14 +77,6 @@ function JoustRules.matchWinner(a: number, b: number): number?
 	return nil
 end
 
--- Fil des éliminations, dans le vocabulaire du camp du tireur.
-JoustRules.KILL_VERBS = {
-	[0] = { "a serré", "a coffré", "a menotté", "a neutralisé", "a mis au trou", "a embarqué" },
-	[1] = { "a refroidi", "a planté", "a descendu", "a fumé", "a effacé", "a rayé de la carte" },
-}
-JoustRules.FALL_TEXT = {
-	[0] = "est tombé en service",
-	[1] = "s'est vautré",
-}
+-- (Le vocabulaire du fil des éliminations est dans Lang : français et anglais.)
 
 return JoustRules

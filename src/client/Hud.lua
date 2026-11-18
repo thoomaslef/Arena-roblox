@@ -7,13 +7,16 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
+local Lang = require(game:GetService("ReplicatedStorage").Shared:WaitForChild("Lang"))
 local Input = require(script.Parent.Input)
+local Prefs = require(script.Parent.Prefs)
 local UiScale = require(script.Parent.UiScale)
 
 local Hud = {}
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "CavaleHud"
+gui.AutoLocalize = false -- nos textes sont déjà traduits (Lang) : pas de traduction auto de Roblox
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -27,19 +30,45 @@ local function frame(props): Frame
 	return f
 end
 
--- Réticule : un point et quatre traits.
-local cross = frame({ Name = "Crosshair", Size = UDim2.fromOffset(4, 4), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = Color3.new(1, 1, 1), Parent = gui })
-Instance.new("UICorner", cross).CornerRadius = UDim.new(1, 0)
-for _, d in { Vector2.new(1, 0), Vector2.new(-1, 0), Vector2.new(0, 1), Vector2.new(0, -1) } do
-	frame({
-		Size = if d.X ~= 0 then UDim2.fromOffset(8, 2) else UDim2.fromOffset(2, 8),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, d.X * 11, 0.5, d.Y * 11),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BackgroundTransparency = 0.15,
-		Parent = gui,
-	})
+-- Réticule (forme et couleur réglables : onglet JEU des Réglages).
+local crosshair = frame({ Name = "Crosshair", Size = UDim2.fromOffset(40, 40), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, Parent = gui })
+local function buildCrosshair()
+	crosshair:ClearAllChildren()
+	local color = Prefs.COLOR_VALUES[Prefs.crosshairColor] or Color3.new(1, 1, 1)
+	local shape = Prefs.crosshair
+	local function piece(size: UDim2, pos: UDim2, round: boolean)
+		local f = frame({ Size = size, AnchorPoint = Vector2.new(0.5, 0.5), Position = pos, BackgroundColor3 = color, Parent = crosshair })
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.new(0, 0, 0)
+		stroke.Transparency = 0.55
+		stroke.Thickness = 1
+		stroke.Parent = f
+		if round then
+			Instance.new("UICorner", f).CornerRadius = UDim.new(1, 0)
+		end
+	end
+	if shape == "dot" or shape == "crossdot" then
+		piece(UDim2.fromOffset(5, 5), UDim2.fromScale(0.5, 0.5), true)
+	end
+	if shape == "cross" or shape == "crossdot" then
+		for _, d in { Vector2.new(1, 0), Vector2.new(-1, 0), Vector2.new(0, 1), Vector2.new(0, -1) } do
+			piece(if d.X ~= 0 then UDim2.fromOffset(8, 2) else UDim2.fromOffset(2, 8), UDim2.new(0.5, d.X * 11, 0.5, d.Y * 11), false)
+		end
+		if shape == "cross" then
+			piece(UDim2.fromOffset(3, 3), UDim2.fromScale(0.5, 0.5), true)
+		end
+	elseif shape == "circle" then
+		local ring = frame({ Size = UDim2.fromOffset(22, 22), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, Parent = crosshair })
+		Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+		local s = Instance.new("UIStroke")
+		s.Color = color
+		s.Thickness = 2
+		s.Parent = ring
+		piece(UDim2.fromOffset(3, 3), UDim2.fromScale(0.5, 0.5), true)
+	end
 end
+buildCrosshair()
+Prefs.changed:Connect(buildCrosshair)
 
 -- Endurance.
 local staminaBack = frame({ Name = "Stamina", Size = UDim2.fromOffset(260, 10), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -36), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, Parent = gui })
@@ -60,6 +89,8 @@ debugLabel.TextStrokeTransparency = 0.5
 debugLabel.TextXAlignment = Enum.TextXAlignment.Left
 debugLabel.TextYAlignment = Enum.TextYAlignment.Top
 debugLabel.Parent = gui
+-- Seulement dans Studio : en jeu publié, les joueurs ne voient pas ces infos de réglage.
+debugLabel.Visible = game:GetService("RunService"):IsStudio()
 
 -- Charges de roquette : 5 segments qui se remplissent.
 local CHARGES = Config.Rocket.CHARGES
@@ -89,7 +120,7 @@ weaponLabel.TextSize = 16
 weaponLabel.TextXAlignment = Enum.TextXAlignment.Left
 weaponLabel.TextColor3 = Color3.new(1, 1, 1)
 weaponLabel.TextStrokeTransparency = 0.4
-weaponLabel.Text = "ROQUETTE"
+weaponLabel.Text = Lang.t("hud.rocket")
 weaponLabel.Parent = gui
 
 local railBack = frame({ Name = "RailCharge", Size = UDim2.fromOffset(260, 14), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -54), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, Visible = false, Parent = gui })
@@ -224,12 +255,12 @@ function Hud.onHit(killed: boolean, model: Instance?, livesLeft: number?)
 	Hud.showHit(killed)
 	flashModel(model, killed)
 	if killed then
-		popText("ÉLIMINÉ !", Color3.fromRGB(255, 80, 80))
+		popText(Lang.t("hud.eliminated"), Color3.fromRGB(255, 80, 80))
 		-- « Coup de poing » visuel : contraste et saturation qui claquent puis reviennent.
 		punchCC.Contrast, punchCC.Saturation, punchCC.Brightness = 0.35, 0.4, 0.08
 		TweenService:Create(punchCC, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Contrast = 0, Saturation = 0, Brightness = 0 }):Play()
 	elseif livesLeft == 1 then
-		popText("DERNIÈRE VIE !", Color3.fromRGB(255, 200, 80))
+		popText(Lang.t("hud.lastlife"), Color3.fromRGB(255, 200, 80))
 	end
 end
 
@@ -266,7 +297,7 @@ function Hud.updateWeapons(charges: number, weapon: string?, railCharges: number
 	local rail = weapon == "rail"
 	chargeBar.Visible = not rail
 	railBack.Visible = rail
-	weaponLabel.Text = if rail then "RAIL" else "ROQUETTE"
+	weaponLabel.Text = Lang.t(if rail then "hud.rail" else "hud.rocket")
 	weaponLabel.TextColor3 = if rail then Config.Rail.BEAM_COLOR else Color3.new(1, 1, 1)
 	local rc = math.clamp(railCharges or 0, 0, 1)
 	railFill.Size = UDim2.fromScale(rc, 1)

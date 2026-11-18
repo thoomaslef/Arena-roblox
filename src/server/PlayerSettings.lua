@@ -33,6 +33,15 @@ local function sanitize(data: any): any?
 	if type(data.sensitivity) == "number" and data.sensitivity == data.sensitivity then
 		out.sensitivity = math.clamp(data.sensitivity, 0.05, 5)
 	end
+	if type(data.prefs) == "table" then
+		local p = {}
+		for k, v in data.prefs do
+			if type(k) == "string" and #k <= 20 and (type(v) == "number" and v == v or type(v) == "string" and #v <= 20) then
+				p[k] = v
+			end
+		end
+		out.prefs = p
+	end
 	if type(data.bindings) == "table" then
 		local n = 0
 		for id, keys in data.bindings do
@@ -62,7 +71,7 @@ remote.OnServerEvent:Connect(function(player, kind, data)
 			if ok then
 				saved = res
 			else
-				remote:FireClient(player, "info", "Réglages non sauvegardés (DataStore indisponible dans Studio : voir README)")
+				remote:FireClient(player, "info", "set.nosave") -- clé de texte (Lang)
 			end
 		end
 		remote:FireClient(player, "load", saved)
