@@ -10,6 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Input = require(script.Parent.Input)
 local FpsCamera = require(script.Parent.FpsCamera)
+local UiScale = require(script.Parent.UiScale)
 
 local player = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Settings") :: RemoteEvent
@@ -24,7 +25,8 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "CavaleSettings"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
-gui.DisplayOrder = 10
+gui.DisplayOrder = 30
+UiScale.attach(gui)
 
 local function make(className: string, props): any
 	local o = Instance.new(className)
@@ -166,7 +168,7 @@ local sensLabel = make("TextLabel", {
 local plus = smallButton("+", 0.8)
 
 -- Bas : réinitialiser / fermer.
-local function bottomButton(text: string, x: number, color: Color3): TextButton
+local function bottomButton(text: string, x: number, color: Color3, width: number?): TextButton
 	local b = make("TextButton", {
 		Text = text,
 		Font = Enum.Font.GothamBold,
@@ -175,14 +177,15 @@ local function bottomButton(text: string, x: number, color: Color3): TextButton
 		BackgroundColor3 = color,
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(x, 0, 1, 0),
-		Size = UDim2.new(0.48, 0, 0, 40),
+		Size = UDim2.new(width or 0.32, 0, 0, 40),
 		Parent = panel,
 	})
 	corner(b, 8)
 	return b
 end
 local resetButton = bottomButton("Touches par défaut", 0, CELL)
-local closeButton = bottomButton("Fermer (P)", 0.52, Color3.fromRGB(200, 120, 30))
+local menuButton = bottomButton("Menu principal", 0.34, CELL)
+local closeButton = bottomButton("Fermer (P)", 0.68, Color3.fromRGB(200, 120, 30))
 
 gui.Parent = player:WaitForChild("PlayerGui")
 
@@ -230,6 +233,10 @@ function SettingsMenu.toggle()
 	SettingsMenu.setOpen(not panel.Visible)
 end
 
+function SettingsMenu.isOpen(): boolean
+	return panel.Visible
+end
+
 for id, row in cells do
 	for slot, b in row do
 		b.MouseButton1Click:Connect(function()
@@ -257,6 +264,11 @@ resetButton.MouseButton1Click:Connect(function()
 end)
 closeButton.MouseButton1Click:Connect(function()
 	SettingsMenu.setOpen(false)
+end)
+-- Retour à l'écran d'accueil (quitter un match compte comme un forfait).
+menuButton.MouseButton1Click:Connect(function()
+	SettingsMenu.setOpen(false)
+	ReplicatedStorage.Remotes:WaitForChild("Lobby"):FireServer("menu")
 end)
 gear.MouseButton1Click:Connect(SettingsMenu.toggle)
 

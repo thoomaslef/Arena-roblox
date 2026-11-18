@@ -16,14 +16,21 @@ local Gas = require(script.Parent.Gas)
 local CharacterAnimator = require(script.Parent.CharacterAnimator)
 local Viewmodel = require(script.Parent.Viewmodel)
 local Sfx = require(script.Parent.Sfx)
-require(script.Parent.SettingsMenu) -- menu Réglages (touche P)
+local SettingsMenu = require(script.Parent.SettingsMenu) -- menu Réglages (touche P)
+local MainMenu = require(script.Parent.MainMenu) -- écran d'accueil
+local Tutorial = require(script.Parent.Tutorial)
+local TouchControls = require(script.Parent.TouchControls)
+MainMenu.onSettings = SettingsMenu.toggle
 
 local aimRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Aim") :: UnreliableRemoteEvent
 local aimSendT = 0
 local lastSentPitch = 999
 
-Weapons.onHit = function(_victimName, killed)
-	Hud.showHit(killed)
+Weapons.onHit = function(_victimName, killed, victimModel, livesLeft)
+	Hud.onHit(killed, victimModel, livesLeft)
+	if killed then
+		FpsCamera.punch = 1 -- petit à-coup de zoom à l'élimination
+	end
 end
 Weapons.onDetonated = function()
 	Hud.showHit(false)
@@ -31,6 +38,7 @@ Weapons.onDetonated = function()
 end
 Weapons.onFire = function()
 	Viewmodel.kick()
+	Tutorial.noteFire()
 end
 Weapons.onOtherShot = function(muzzle)
 	CharacterAnimator.kickNear(muzzle)
@@ -107,6 +115,10 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	-- Bras et arme en main, juste après la caméra.
 	Viewmodel.update(dt, ctrl, Weapons.weapon, FpsCamera.yaw, FpsCamera.pitch)
 	Hud.update(ctrl)
+	Hud.setVisible(not MainMenu.isOpen())
+	MainMenu.update(dt, SettingsMenu.isOpen())
+	Tutorial.update(dt, ctrl)
+	TouchControls.update(if ctrl and ctrl.root.Parent then ctrl else nil, not MainMenu.isOpen() and not SettingsMenu.isOpen())
 	CharacterAnimator.update(dt)
 	-- Inclinaison de notre visée, pour que l'adversaire voie où on vise (~15 fois par seconde).
 	aimSendT -= dt

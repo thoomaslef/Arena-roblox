@@ -79,8 +79,27 @@ function Joust.state(): string
 	return state
 end
 
+-- Modes d'un joueur (attribut « Mode », lu aussi par le client) :
+--   "menu"     : écran d'accueil, pas de personnage, pas compté pour les matchs ;
+--   "play"     : a cliqué sur JOUER, compté pour les matchs (et le bot) ;
+--   "tutorial" : sur le terrain du tutoriel, à l'écart de l'arène.
+local tutorialMap = nil
+
+local function readyPlayers(): { Player }
+	local list = {}
+	for _, p in Players:GetPlayers() do
+		if p:GetAttribute("Mode") == "play" then
+			table.insert(list, p)
+		end
+	end
+	return list
+end
+
 -- Point d'apparition (pieds) du joueur.
 function Joust.spawnCFrame(player: Player): CFrame
+	if typeof(player) == "Instance" and player:GetAttribute("Mode") == "tutorial" and tutorialMap then
+		return tutorialMap.spawns[1]
+	end
 	return spawnFor[player] or map.spawns[1]
 end
 
@@ -88,8 +107,10 @@ end
 local function applyFreeze(player: Player)
 	local c = player.Character
 	if c then
-		c:SetAttribute("Frozen", state == "countdown")
-		c:SetAttribute("CanFire", state ~= "countdown")
+		-- Seuls les deux combattants sont gelés (pas un joueur dans le tutoriel).
+		local frozen = state == "countdown" and indexOf(player) ~= nil
+		c:SetAttribute("Frozen", frozen)
+		c:SetAttribute("CanFire", not frozen)
 	end
 end
 
@@ -153,10 +174,14 @@ function Joust.kill(player: Player, cause: string, killer: Player?)
 	local character = player.Character
 	local feet = Rocket.feetOf(character)
 	if state == "waiting" or not indexOf(player) then
-		-- Entraînement : on réapparaît simplement.
+		-- Entraînement ou tutoriel : on réapparaît simplement.
 		alive[player] = false
 		task.delay(1.0, function()
-			if player.Parent and state == "waiting" then
+			if not player.Parent or indexOf(player) then
+				return
+			end
+			local mode = player:GetAttribute("Mode")
+			if mode == "tutorial" or (mode == "play" and state == "waiting") then
 				player:LoadCharacter()
 			end
 		end)
@@ -301,7 +326,7 @@ local function scheduleBot()
 	end
 	matchFolder:SetAttribute("BotAt", Workspace:GetServerTimeNow() + Config.Match.BOT_WAIT)
 	task.delay(Config.Match.BOT_WAIT, function()
-		if token == botToken and state == "waiting" and #Players:GetPlayers() == 1 then
+		if token == botToken and state == "waiting" and #readyPlayers() == 1 then
 			Joust.startMatch(true)
 		end
 	end)
@@ -332,7 +357,7 @@ function Joust.startMatch(withBot: boolean?)
 	matchToken += 1
 	botToken += 1
 	matchFolder:SetAttribute("BotAt", nil)
-	local list: { any } = Players:GetPlayers()
+	local list: { any } = readyPlayers()
 	if #list >= 2 then
 		removeBot()
 	elseif #list == 1 and (withBot or bot ~= nil) then
@@ -381,14 +406,17 @@ function Joust.init(combat)
 	matchRemote.Parent = ReplicatedStorage:WaitForChild("Remotes")
 
 	Joust.loadMap(pickMap())
+	-- Terrain du tutoriel, construit une fois, loin de l'arène (aucune interférence).
+	tutorialMap = MapBuilder.build(require(ReplicatedStorage.Shared:WaitForChild("TutorialMap")), Workspace, "TutorialMap", Vector3.new(-320, 0, -320))
 	setState("waiting")
 	publish()
 
 	-- Dégâts de roquette : -1 vie, à 0 c'est éliminé.
 	Combat.canBeHit = Joust.canBeHit
 	Combat.canFire = function(player: Player): boolean
-		-- On peut tirer pendant la pause de fin de manche (sans dégâts), pas au compte à rebours.
-		return alive[player] == true and player.Character ~= nil and state ~= "countdown"
+		-- On peut tirer pendant la pause de fin de manche (sans dégâts), pas au compte à rebours
+		-- (sauf dans le tutoriel, qui ne participe pas au match).
+		return alive[player] == true and player.Character ~= nil and (state ~= "countdown" or indexOf(player) == nil)
 	end
 	Combat.onDamage = function(victim: Player, attacker: Player?): boolean
 		local lives = ((victim:GetAttribute("Lives") or J.LIVES) :: number) - 1
@@ -416,8 +444,14 @@ function Joust.init(combat)
 		end
 	end)
 
-	Players.PlayerAdded:Connect(function(player)
-		if bot and #Players:GetPlayers() >= 2 then
+	-- Un joueur clique sur JOUER : il entre dans la file (2 joueurs = match, seul = bot).
+	local function onPlay(player: Player)
+		if player:GetAttribute("Mode") == "play" then
+			return
+		end
+		player:SetAttribute("Mode", "play")
+		local ready = readyPlayers()
+		if bot and #ready >= 2 then
 			-- Un vrai adversaire arrive : il remplace le bot tout de suite.
 			matchToken += 1
 			removeBot()
@@ -426,28 +460,30 @@ function Joust.init(combat)
 			publish()
 			matchRemote:FireAllClients("info", "UN ADVERSAIRE ARRIVE", "Le bot laisse sa place · nouveau match")
 			task.delay(2, function()
-				if state == "waiting" and #Players:GetPlayers() >= 2 then
+				if state == "waiting" and #readyPlayers() >= 2 then
 					Joust.startMatch()
 				end
 			end)
 		elseif state == "waiting" then
-			if #Players:GetPlayers() >= 2 then
+			spawnFor[player] = nil
+			player:LoadCharacter() -- entraînement libre en attendant
+			if #ready >= 2 then
 				botToken += 1
 				matchFolder:SetAttribute("BotAt", nil)
 				task.delay(2, function()
-					if state == "waiting" and #Players:GetPlayers() >= 2 then
+					if state == "waiting" and #readyPlayers() >= 2 then
 						Joust.startMatch()
 					end
 				end)
 			else
-				player:LoadCharacter()
 				scheduleBot()
 			end
 		end
-		-- Sinon (3e joueur) : spectateur. Les serveurs sont limités à 2 places (voir README).
-	end)
+		-- Sinon (match déjà complet) : il attend la fin. Serveurs limités à 2 places (README).
+	end
 
-	Players.PlayerRemoving:Connect(function(player)
+	-- Un joueur quitte le match (départ du serveur ou retour au menu) : forfait.
+	local function leave(player: Player)
 		alive[player] = nil
 		spawnFor[player] = nil
 		local i = indexOf(player)
@@ -466,7 +502,7 @@ function Joust.init(combat)
 				if state ~= "waiting" then
 					return
 				end
-				if #Players:GetPlayers() >= 2 then
+				if #readyPlayers() >= 2 then
 					Joust.startMatch()
 				elseif other and other.Parent then
 					spawnFor[other] = nil
@@ -474,18 +510,68 @@ function Joust.init(combat)
 					scheduleBot()
 				end
 			end)
+		elseif state == "waiting" and #readyPlayers() <= 1 then
+			-- Plus qu'un joueur prêt (ou aucun) : on relance l'attente du bot.
+			if #readyPlayers() == 1 then
+				scheduleBot()
+			else
+				botToken += 1
+				matchFolder:SetAttribute("BotAt", nil)
+			end
+		end
+	end
+
+	local function toMenu(player: Player)
+		local wasMode = player:GetAttribute("Mode")
+		player:SetAttribute("Mode", "menu")
+		if wasMode == "play" then
+			leave(player)
+		end
+		local c = player.Character
+		if c then
+			alive[player] = nil
+			player.Character = nil
+			c:Destroy()
+		end
+	end
+
+	local function toTutorial(player: Player)
+		if indexOf(player) and state ~= "waiting" then
+			return -- en plein match : pas de tutoriel
+		end
+		local wasMode = player:GetAttribute("Mode")
+		player:SetAttribute("Mode", "tutorial")
+		if wasMode == "play" then
+			leave(player)
+		end
+		player:LoadCharacter()
+	end
+
+	-- Écran d'accueil → serveur.
+	local lobby = Instance.new("RemoteEvent")
+	lobby.Name = "Lobby"
+	lobby.Parent = ReplicatedStorage:WaitForChild("Remotes")
+	lobby.OnServerEvent:Connect(function(player, choice)
+		if choice == "play" then
+			onPlay(player)
+		elseif choice == "tutorial" then
+			toTutorial(player)
+		elseif choice == "menu" then
+			toMenu(player)
 		end
 	end)
 
+	Players.PlayerAdded:Connect(function(player)
+		player:SetAttribute("Mode", "menu")
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		player:SetAttribute("Mode", "gone")
+		leave(player)
+	end)
 	for _, p in Players:GetPlayers() do
-		if not p.Character then
-			p:LoadCharacter()
+		if p:GetAttribute("Mode") == nil then
+			p:SetAttribute("Mode", "menu")
 		end
-	end
-	if #Players:GetPlayers() >= 2 then
-		Joust.startMatch()
-	elseif #Players:GetPlayers() == 1 then
-		scheduleBot()
 	end
 end
 

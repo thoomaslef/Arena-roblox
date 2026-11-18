@@ -151,9 +151,10 @@ end
 
 -- Applique une touche (1 vie) et prévient le tireur et la victime.
 local function applyHit(victim: any, attacker: any, from: Vector3)
+	local victimCharacter = victim.Character -- gardé avant : il disparaît s'il est éliminé
 	local killed = Combat.onDamage(victim, attacker)
 	if attacker.Parent then
-		send(attacker, "hit", victim.DisplayName, killed)
+		send(attacker, "hit", victim.DisplayName, killed, victimCharacter, victim:GetAttribute("Lives"))
 	end
 	send(victim, "damaged", from, victim:GetAttribute("Lives"))
 end

@@ -6,6 +6,7 @@
 --   * le serveur fait foi pour les dégâts ; les roquettes des autres joueurs arrivent par lui.
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -109,6 +110,36 @@ local function explodeVisual(v: Visual, pos: Vector3, n: Vector3)
 	end
 end
 
+-- Aide à la visée (tactile et manette seulement) : si l'adversaire est presque sous le
+-- réticule (moins de 6°) et visible, le tir est légèrement ramené vers lui.
+local ASSIST_CONE = math.rad(6)
+local ASSIST_PULL = 0.7
+local function aimAssist(eye: Vector3, dir: Vector3): Vector3
+	local last = UserInputService:GetLastInputType()
+	local assisted = last == Enum.UserInputType.Touch or last.Name:sub(1, 7) == "Gamepad"
+	if not assisted or not ctrl then
+		return dir
+	end
+	local best, bestAng = nil, ASSIST_CONE
+	for _, model in Workspace:GetChildren() do
+		if model:IsA("Model") and model ~= ctrl.character and model:FindFirstChildOfClass("Humanoid") then
+			local feet = Rocket.feetOf(model)
+			if feet then
+				local target = feet + Vector3.new(0, 1.0, 0)
+				local to = target - eye
+				local ang = math.acos(math.clamp(dir:Dot(to.Unit), -1, 1))
+				if ang < bestAng and Workspace:Raycast(eye * S, to * S, Rocket.worldParams()) == nil then
+					best, bestAng = to.Unit, ang
+				end
+			end
+		end
+	end
+	if best then
+		return dir:Lerp(best, ASSIST_PULL).Unit
+	end
+	return dir
+end
+
 local function canShoot(): boolean
 	return ctrl ~= nil
 		and not ctrl.frozen
@@ -137,7 +168,7 @@ local function tryFireRail()
 	Weapons.fireCd = RL.COOLDOWN
 
 	local eye = ctrl:eyePosition() / S
-	local dir = FpsCamera.rotation().LookVector
+	local dir = aimAssist(ctrl:eyePosition() / S, FpsCamera.rotation().LookVector)
 	local yaw = FpsCamera.yaw
 	local hit = Workspace:Raycast(eye * S, dir * RL.RANGE * S, Rocket.shotParams(ctrl.character))
 	local stop = if hit then hit.Position / S else eye + dir * RL.RANGE
@@ -193,7 +224,7 @@ local function tryFire()
 	Weapons.fireCd = R.MIN_INTERVAL
 
 	local eye = ctrl:eyePosition() / S
-	local dir = FpsCamera.rotation().LookVector
+	local dir = aimAssist(ctrl:eyePosition() / S, FpsCamera.rotation().LookVector)
 	local yaw = FpsCamera.yaw
 	local params = Rocket.shotParams(ctrl.character)
 	local spawn, vel = Rocket.launch(eye, dir, yaw, params)
@@ -332,14 +363,16 @@ combatRemote.OnClientEvent:Connect(function(kind: string, ...)
 			ctrl:addImpulse(impulse)
 		end
 	elseif kind == "hit" then
-		local victimName, killed = ...
+		local victimName, killed, victimModel, livesLeft = ...
 		if killed then
 			Sfx.play("kill", 0)
+		elseif livesLeft == 1 then
+			Sfx.play("hit", 2, 0.8) -- plus grave et plus fort : il ne lui reste qu'une vie
 		else
 			Sfx.play("hit", 0)
 		end
 		if Weapons.onHit then
-			Weapons.onHit(victimName, killed)
+			Weapons.onHit(victimName, killed, victimModel, livesLeft)
 		end
 	elseif kind == "damaged" then
 		local fromPos, lives = ...

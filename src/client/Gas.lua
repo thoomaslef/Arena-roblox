@@ -111,7 +111,7 @@ function Gas.update(dt: number, character: Model?): (number, boolean)
 	prevStage = stage
 
 	local warn = false
-	if state == "live" then
+	if state == "live" and MatchHud.myIndex() ~= nil then -- seuls les combattants sont concernés
 		local feet = Rocket.feetOf(character)
 		if feet and JoustRules.distToCenter(feet, center) > radius - J.GAS_WARN_DIST then
 			warn = true

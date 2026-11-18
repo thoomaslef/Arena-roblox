@@ -261,6 +261,7 @@ function Movement:step(dt: number, input)
 	-- Compte à rebours : on peut viser, pas bouger ni tirer (attribut posé par le serveur).
 	self.frozen = self.character:GetAttribute("Frozen") == true
 	self.onJump, self.onWalljump, self.onLand, self.onPad, self.onAccel = false, false, false, false, false
+	self.onKnock = 0 -- force (m/s) de la poussée reçue à ce pas (rocket jump, explosion)
 
 	-- Vitesse réelle après la physique de l'image précédente (murs, plafonds).
 	self.vel = root.AssemblyLinearVelocity / S
@@ -270,6 +271,7 @@ function Movement:step(dt: number, input)
 	if impulse then
 		self.pendingImpulse = nil
 		self.vel += impulse
+		self.onKnock = impulse.Magnitude
 		self.knockT = Config.Rocket.KNOCK_TIME
 		self.boosting = false
 		knocked = impulse.Magnitude > 2.0

@@ -15,6 +15,7 @@ local FpsCamera = {
 	zoomTarget = 1,
 	shake = 0, -- intensité du tremblement (explosions proches)
 	cursorFree = false, -- menu ouvert : souris libre et visible
+	punch = 0, -- à-coup de zoom (élimination), retombe tout seul
 }
 
 function FpsCamera.setYaw(yaw: number)
@@ -53,7 +54,8 @@ function FpsCamera.update(dt: number, eye: Vector3)
 	-- FOV horizontal → vertical (Roblox règle le champ vertical).
 	local vp = cam.ViewportSize
 	local aspect = if vp.Y > 0 then vp.X / vp.Y else 16 / 9
-	local h = math.rad(C.HFOV) * FpsCamera.zoom
+	FpsCamera.punch = math.max(0, FpsCamera.punch - dt * 4)
+	local h = math.rad(C.HFOV) * FpsCamera.zoom * (1 - 0.08 * FpsCamera.punch)
 	cam.FieldOfView = math.clamp(math.deg(2 * math.atan(math.tan(h / 2) / aspect)), 1, 120)
 
 	local offset = Vector3.zero

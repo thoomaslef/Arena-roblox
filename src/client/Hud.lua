@@ -1,5 +1,5 @@
 -- HUD minimal : réticule, endurance, charges de roquette, vies, marqueur de touche,
--- « +1 », infos de réglage, et boutons tactiles (mobilité, tir).
+-- « +1 », infos de réglage, joystick tactile.
 
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Input = require(script.Parent.Input)
+local UiScale = require(script.Parent.UiScale)
 
 local Hud = {}
 
@@ -141,6 +142,45 @@ plusOne.Parent = gui
 local hitCount = 0
 local lastHitTime = 0
 
+-- Gros message au centre : « DERNIÈRE VIE ! », « ÉLIMINÉ ! ».
+local bigHit = Instance.new("TextLabel")
+bigHit.Name = "BigHit"
+bigHit.BackgroundTransparency = 1
+bigHit.AnchorPoint = Vector2.new(0.5, 0.5)
+bigHit.Position = UDim2.new(0.5, 0, 0.5, 70)
+bigHit.Size = UDim2.fromOffset(500, 50)
+bigHit.Font = Enum.Font.GothamBlack
+bigHit.TextSize = 34
+bigHit.TextStrokeTransparency = 0.2
+bigHit.TextTransparency = 1
+bigHit.TextStrokeColor3 = Color3.new(0, 0, 0)
+bigHit.Text = ""
+bigHit.Parent = gui
+local bigScale = Instance.new("UIScale")
+bigScale.Parent = bigHit
+
+local function popText(text: string, color: Color3)
+	bigHit.Text = text
+	bigHit.TextColor3 = color
+	bigHit.TextTransparency = 0
+	bigHit.TextStrokeTransparency = 0.2
+	bigScale.Scale = 1.6
+	TweenService:Create(bigScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	task.delay(0.7, function()
+		if bigHit.Text == text then
+			TweenService:Create(bigHit, TweenInfo.new(0.4), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		end
+	end)
+end
+Hud.popText = popText
+
+-- Flash de l'écran (couleurs plus contrastées un instant) à l'élimination.
+local Lighting = game:GetService("Lighting")
+local punchCC = Instance.new("ColorCorrectionEffect")
+punchCC.Name = "CavaleKillPunch"
+punchCC.Enabled = true
+punchCC.Parent = Lighting
+
 -- Voile rouge quand on est touché.
 local damageFlash = frame({ Name = "DamageFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 40, 40), BackgroundTransparency = 1, ZIndex = 0, Active = false, Parent = gui })
 
@@ -150,61 +190,48 @@ Instance.new("UICorner", stickBase).CornerRadius = UDim.new(1, 0)
 local stickKnob = frame({ Name = "StickKnob", Size = UDim2.fromOffset(52, 52), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.3, Visible = false, Parent = gui })
 Instance.new("UICorner", stickKnob).CornerRadius = UDim.new(1, 0)
 
--- Bouton de mobilité tactile (en bas à droite).
-if UserInputService.TouchEnabled then
-	local btn = Instance.new("TextButton")
-	btn.Name = "Mobility"
-	btn.Text = "SAUT"
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 18
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.BackgroundColor3 = Color3.new(0, 0, 0)
-	btn.BackgroundTransparency = 0.45
-	btn.AutoButtonColor = false
-	btn.Size = UDim2.fromOffset(96, 96)
-	btn.AnchorPoint = Vector2.new(1, 1)
-	btn.Position = UDim2.new(1, -40, 1, -60)
-	btn.Parent = gui
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
-	btn.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch then
-			Input.setTouchMobility(true)
-			btn.BackgroundTransparency = 0.2
-		end
-	end)
-	btn.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch then
-			Input.setTouchMobility(false)
-			btn.BackgroundTransparency = 0.45
-		end
-	end)
+-- (Les boutons tactiles sont dans TouchControls.)
 
-	local fire = btn:Clone()
-	fire.Name = "Fire"
-	fire.Text = "TIR"
-	fire.Size = UDim2.fromOffset(84, 84)
-	fire.Position = UDim2.new(1, -150, 1, -150)
-	fire.BackgroundColor3 = Color3.fromRGB(120, 40, 10)
-	fire.Parent = gui
-	fire.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch then
-			Input.setTouchFire(true)
-			fire.BackgroundTransparency = 0.2
-		end
-	end)
-	fire.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch then
-			Input.setTouchFire(false)
-			fire.BackgroundTransparency = 0.45
-		end
-	end)
-end
-
+UiScale.attach(gui)
 gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+function Hud.setVisible(v: boolean)
+	gui.Enabled = v
+end
 pcall(function()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 end)
+
+-- Flash du personnage touché (blanc ; rouge à l'élimination).
+local function flashModel(model: Instance?, killed: boolean)
+	if not model or not model:IsA("Model") or not model.Parent then
+		return
+	end
+	local h = Instance.new("Highlight")
+	h.FillColor = if killed then Color3.fromRGB(255, 60, 60) else Color3.new(1, 1, 1)
+	h.OutlineColor = h.FillColor
+	h.FillTransparency = 0.2
+	h.OutlineTransparency = 0
+	h.DepthMode = Enum.HighlightDepthMode.Occluded
+	h.Parent = model
+	TweenService:Create(h, TweenInfo.new(0.25), { FillTransparency = 1, OutlineTransparency = 1 }):Play()
+	game:GetService("Debris"):AddItem(h, 0.3)
+end
+
+-- Touche confirmée par le serveur : marqueur, « +1 », flash de la cible, messages.
+function Hud.onHit(killed: boolean, model: Instance?, livesLeft: number?)
+	Hud.showHit(killed)
+	flashModel(model, killed)
+	if killed then
+		popText("ÉLIMINÉ !", Color3.fromRGB(255, 80, 80))
+		-- « Coup de poing » visuel : contraste et saturation qui claquent puis reviennent.
+		punchCC.Contrast, punchCC.Saturation, punchCC.Brightness = 0.35, 0.4, 0.08
+		TweenService:Create(punchCC, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Contrast = 0, Saturation = 0, Brightness = 0 }):Play()
+	elseif livesLeft == 1 then
+		popText("DERNIÈRE VIE !", Color3.fromRGB(255, 200, 80))
+	end
+end
 
 function Hud.showHit(killed: boolean)
 	local now = os.clock()
@@ -265,8 +292,10 @@ function Hud.update(ctrl)
 		if d.Magnitude > st.radius then
 			d = d.Unit * st.radius
 		end
-		stickBase.Position = UDim2.fromOffset(st.origin.X, st.origin.Y)
-		stickKnob.Position = UDim2.fromOffset(st.origin.X + d.X, st.origin.Y + d.Y)
+		-- Le HUD est mis à l'échelle (UiScale) : on ramène la position du doigt à cette échelle.
+		local k = UiScale.factor()
+		stickBase.Position = UDim2.fromOffset(st.origin.X / k, st.origin.Y / k)
+		stickKnob.Position = UDim2.fromOffset((st.origin.X + d.X) / k, (st.origin.Y + d.Y) / k)
 	end
 	if not ctrl then
 		return

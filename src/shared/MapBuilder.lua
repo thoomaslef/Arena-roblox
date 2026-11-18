@@ -97,9 +97,12 @@ export type BuiltMap = {
 	spawns: { CFrame }, -- en studs (pieds du joueur), orientés
 }
 
-function MapBuilder.build(data, parent: Instance?): BuiltMap
+-- name : nom du Model (« Map » pour l'arène) ; offset (m) : décalage de toute la map
+-- (le terrain du tutoriel est construit loin de l'arène).
+function MapBuilder.build(data, parent: Instance?, name: string?, offset: Vector3?): BuiltMap
+	local off = offset or Vector3.zero
 	local model = Instance.new("Model")
-	model.Name = "Map"
+	model.Name = name or "Map"
 
 	local blocks = Instance.new("Folder")
 	blocks.Name = "Blocks"
@@ -112,7 +115,7 @@ function MapBuilder.build(data, parent: Instance?): BuiltMap
 			continue
 		end
 		local rot = b.rot or 0
-		local base = cellCenter(b.pos) -- bas du bloc, centre de la case (m)
+		local base = cellCenter(b.pos) + off -- bas du bloc, centre de la case (m)
 		local h = def.h
 		local part: BasePart
 		if def.shape == "ramp" then
@@ -155,10 +158,10 @@ function MapBuilder.build(data, parent: Instance?): BuiltMap
 
 	local spawns = {}
 	local size = data.size or { 21, 21 }
-	local center = Vector3.new(size[1] * CELL * 0.5, 0, size[2] * CELL * 0.5)
+	local center = Vector3.new(size[1] * CELL * 0.5, 0, size[2] * CELL * 0.5) + off
 	local zoneCenter = center
 	for _, o in data.objects or {} do
-		local p = cellCenter(o.pos)
+		local p = cellCenter(o.pos) + off
 		if o.type == "spawn_joust" then
 			local cf = CFrame.new(p * S) * CFrame.Angles(0, MapBuilder.yawForRot(o.rot or 0), 0)
 			table.insert(spawns, cf)

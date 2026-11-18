@@ -242,6 +242,8 @@ end)
 
 -- Mise à jour à chaque image.
 function MatchHud.update(gasStage: number, warn: boolean)
+	-- Rien du match à l'écran dans le menu ou le tutoriel.
+	gui.Enabled = player:GetAttribute("Mode") == "play"
 	local state = match:GetAttribute("State")
 	name1.Text = match:GetAttribute("Name1") ~= "" and match:GetAttribute("Name1") or TEAMS[0].name
 	name2.Text = match:GetAttribute("Name2") ~= "" and match:GetAttribute("Name2") or TEAMS[1].name

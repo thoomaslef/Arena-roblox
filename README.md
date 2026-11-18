@@ -173,6 +173,32 @@ Réglages dans `Config.Match` : `MAPS` (la liste) et `RANDOM_MAP` (false = toujo
 - Le reste de ton corps reste invisible (vue FPS) : pour voir les animations complètes,
   teste à deux (Test → Clients and Servers → 2 Players) ou contre le bot.
 
+## Écran d'accueil et tutoriel
+
+- À l'arrivée : écran titre **CAVALE** avec **JOUER**, **TUTORIEL**, **RÉGLAGES** (la caméra
+  tourne autour de l'arène). Seuls les joueurs qui ont cliqué sur JOUER sont comptés pour
+  les matchs et pour l'arrivée du bot.
+- **Tutoriel** : 9 étapes validées automatiquement (déplacement, micro-saut, grand saut,
+  plané, sprint, wall-jump, roquette, rocket jump, Rail) sur un terrain construit à l'écart
+  de l'arène (`src/shared/TutorialMap.lua`) : il ne gêne pas un match en cours.
+- Retour au menu : Réglages (P / ⚙) → **Menu principal** (pendant un match = forfait).
+
+## Mobile
+
+- Boutons **TIR** et **SAUT** dimensionnés selon la hauteur de l'écran (le bouton SAUT devient
+  **ZOOM** sur une plateforme Rail) ; joystick qui apparaît sous le pouce gauche.
+- Interfaces mises à l'échelle automatiquement (téléphone, tablette, PC).
+- **Aide à la visée** au tactile et à la manette (pas à la souris) : si l'adversaire est
+  presque sous le réticule (< 6°) et visible, le tir est légèrement ramené vers lui.
+- Le tutoriel parle des boutons à l'écran au lieu des touches.
+
+## Anti-triche
+
+Le serveur vérifie les déplacements (`src/server/MoveGuard.lua`) : vitesse au-delà du possible
+(beaucoup plus de marge juste après une explosion), montée trop rapide, vol, passage à travers
+un mur. Le joueur est remis à sa dernière position valide ; expulsé après trop d'infractions.
+Les tirs étaient déjà vérifiés (charges, cadence, position, touches crédibles).
+
 ## Sons
 
 Les bruitages sont **ceux du jeu Godot** (générés par code, comme dans `autoload/sfx.gd`),
