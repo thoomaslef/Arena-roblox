@@ -215,6 +215,34 @@ Les tirs étaient déjà vérifiés (charges, cadence, position, touches crédib
 - Sauvegarde : DataStore (comme les réglages : dans Studio, il faut l'accès aux services
   d'API, voir « Réglages »).
 
+## Statistiques et défis du jour
+
+- **Accueil → onglet STATS** : matchs, victoires, taux de victoire, manches gagnées,
+  précision, touches, éliminations, touches en l'air, roquettes détruites, meilleure série de
+  victoires, meilleur classement de la saison. **Fin de match** : précision, touches et
+  éliminations du match.
+- **Accueil → onglet DÉFIS** : 3 défis par jour (nouveaux à minuit UTC), tirés dans
+  `src/shared/Challenges.lua` (gagner des manches, toucher au Rail, toucher un adversaire en
+  l'air, détruire une roquette, manche sans perdre de vie…). L'XP est donnée dès que le défi
+  est réussi (bandeau « DÉFI RÉUSSI ! »).
+
+## Amis et salons privés
+
+- **INVITER UN AMI** : ouvre la fenêtre d'invitation de Roblox (jeu publié seulement).
+- **SALON PRIVÉ** : « Créer un salon » donne un **code à 6 caractères** ; ton ami clique sur
+  SALON PRIVÉ, entre le code et vous vous retrouvez seuls sur un serveur. Le code s'affiche en
+  haut de l'accueil. En salon : **pas de bot, matchs non classés** (XP et défis comptent).
+  Ne marche que dans le jeu publié (la téléportation est impossible dans Studio).
+- **Serveurs privés payants de Roblox** (optionnel, source de revenus) : Creator Hub →
+  ton expérience → **Serveurs privés** → activer et fixer un prix. Ils sont aussi non classés.
+
+## Vote de map
+
+À la fin d'un match, **3 maps** sont proposées (autres que celle qu'on vient de jouer) : chacun
+vote en cliquant ou avec **1 / 2 / 3** pendant l'écran de fin (12 s). La plus votée est jouée
+au match suivant (égalité ou aucun vote : au hasard parmi les proposées).
+`Config.Match.MAP_VOTE = false` pour revenir à une map au hasard.
+
 ## Langues
 
 Le jeu est en **français et en anglais** (`src/shared/Lang.lua`) : langue du compte Roblox

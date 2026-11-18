@@ -120,6 +120,11 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	MainMenu.update(dt, SettingsMenu.isOpen())
 	Tutorial.update(dt, ctrl)
 	TouchControls.update(if ctrl and ctrl.root.Parent then ctrl else nil, not MainMenu.isOpen() and not SettingsMenu.isOpen())
+	-- Un écran cliquable est ouvert (accueil, réglages, vote de map) : souris libre, le
+	-- personnage ne reçoit plus les commandes.
+	local uiOpen = MainMenu.isOpen() or SettingsMenu.isOpen() or MatchHud.isVoting()
+	Input.menuOpen = uiOpen
+	FpsCamera.cursorFree = uiOpen
 	CharacterAnimator.update(dt)
 	-- Inclinaison de notre visée, pour que l'adversaire voie où on vise (~15 fois par seconde).
 	aimSendT -= dt

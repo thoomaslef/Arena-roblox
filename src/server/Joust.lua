@@ -77,6 +77,10 @@ end
 
 -- Événements pour la progression (branchés par Main sur Profiles).
 function Joust.onMatchStarted(_fighters: { any }) end
+-- Le bot peut-il venir ? (pas dans un salon privé entre amis : branché par Main)
+function Joust.allowBot(): boolean
+	return true
+end
 function Joust.onRoundWon(_winner: any, _loser: any) end
 function Joust.onMatchEnded(_winner: any, _loser: any, _forfeit: boolean) end
 
@@ -163,6 +167,7 @@ local function judge(token: number)
 		local champ = JoustRules.matchWinner(score[1], score[2])
 		if champ then
 			setState("matchEnd")
+			Joust.startVote() -- (défini plus bas : on passe par la table Joust)
 			matchRemote:FireAllClients("matchEnd", champ, score[1], score[2])
 			Joust.onMatchEnded(fighters[champ], fighters[3 - champ], false)
 			task.delay(J.MATCH_END_PAUSE, function()
@@ -273,7 +278,90 @@ end
 local currentMap: string? = nil
 
 -- Map du prochain match : au hasard parmi Config.Match.MAPS, différente de l'actuelle.
+-- Vote de map en fin de match : 3 maps proposées, chaque joueur vote (clic ou 1 / 2 / 3).
+-- Attributs de Match : VoteMaps ("a,b,c"), VoteCounts ("0,1,0"), VoteEnd (heure serveur).
+local voteMaps: { string } = {}
+local votes: { [Player]: string } = {}
+local voteResult: string? = nil
+
+local function publishVotes()
+	local counts = {}
+	for i, m in voteMaps do
+		counts[i] = 0
+		for _, v in votes do
+			if v == m then
+				counts[i] += 1
+			end
+		end
+	end
+	matchFolder:SetAttribute("VoteMaps", table.concat(voteMaps, ","))
+	matchFolder:SetAttribute("VoteCounts", table.concat(counts, ","))
+end
+
+local function startVote()
+	if not Config.Match.RANDOM_MAP or not Config.Match.MAP_VOTE then
+		return
+	end
+	local pool = {}
+	for _, n in Config.Match.MAPS do
+		if n ~= currentMap then
+			table.insert(pool, n)
+		end
+	end
+	if #pool < 3 then
+		pool = table.clone(Config.Match.MAPS)
+	end
+	voteMaps = {}
+	for _ = 1, math.min(3, #pool) do
+		table.insert(voteMaps, table.remove(pool, math.random(#pool)))
+	end
+	votes = {}
+	voteResult = nil
+	matchFolder:SetAttribute("VoteEnd", Workspace:GetServerTimeNow() + J.MATCH_END_PAUSE)
+	publishVotes()
+end
+
+Joust.startVote = startVote
+
+-- Fin du vote : la map la plus votée (égalité ou aucun vote : au hasard parmi les meilleures).
+local function endVote()
+	if #voteMaps == 0 then
+		return
+	end
+	local best, bestCount = {}, -1
+	for _, m in voteMaps do
+		local n = 0
+		for _, v in votes do
+			if v == m then
+				n += 1
+			end
+		end
+		if n > bestCount then
+			best, bestCount = { m }, n
+		elseif n == bestCount then
+			table.insert(best, m)
+		end
+	end
+	voteResult = best[math.random(#best)]
+	voteMaps, votes = {}, {}
+	matchFolder:SetAttribute("VoteMaps", nil)
+	matchFolder:SetAttribute("VoteCounts", nil)
+	matchFolder:SetAttribute("VoteEnd", nil)
+end
+
+function Joust.vote(player: Player, key: any)
+	if state == "matchEnd" and type(key) == "string" and table.find(voteMaps, key) then
+		votes[player] = key
+		publishVotes()
+	end
+end
+
 local function pickMap(): string
+	if voteResult then
+		local m = voteResult
+		voteResult = nil
+		return m
+	end
 	local pool = Config.Match.MAPS
 	if not Config.Match.RANDOM_MAP or #pool <= 1 then
 		return pool[1]
@@ -325,7 +413,7 @@ end
 local function scheduleBot()
 	botToken += 1
 	local token = botToken
-	if not Config.Match.BOT_ENABLED then
+	if not Config.Match.BOT_ENABLED or not Joust.allowBot() then
 		matchFolder:SetAttribute("BotAt", nil)
 		return
 	end
@@ -359,6 +447,7 @@ function Joust.loadMap(name: string)
 end
 
 function Joust.startMatch(withBot: boolean?)
+	endVote() -- s'il y avait un vote de map en cours, son résultat choisit la prochaine map
 	matchToken += 1
 	botToken += 1
 	matchFolder:SetAttribute("BotAt", nil)
@@ -561,8 +650,10 @@ function Joust.init(combat)
 	local lobby = Instance.new("RemoteEvent")
 	lobby.Name = "Lobby"
 	lobby.Parent = ReplicatedStorage:WaitForChild("Remotes")
-	lobby.OnServerEvent:Connect(function(player, choice)
-		if choice == "play" then
+	lobby.OnServerEvent:Connect(function(player, choice, arg)
+		if choice == "vote" then
+			Joust.vote(player, arg)
+		elseif choice == "play" then
 			onPlay(player)
 		elseif choice == "tutorial" then
 			toTutorial(player)

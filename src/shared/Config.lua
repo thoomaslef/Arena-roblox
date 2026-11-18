@@ -115,7 +115,7 @@ Config.Joust = {
 	GAS_COLOR = Color3.fromHex("#B8FF2E"),
 	GAS_WALL_EXTRA = 14.0, -- hauteur du mur de gaz au-dessus du plus haut bloc (m)
 	TIE_GRACE = 0.15, -- deux morts à moins de 0,15 s d'écart = égalité
-	MATCH_END_PAUSE = 8.0, -- écran de fin de match avant le match suivant
+	MATCH_END_PAUSE = 12.0, -- écran de fin de match (et vote de map) avant le match suivant
 }
 
 -- Matchmaking ------------------------------------------------------------------------
@@ -129,6 +129,7 @@ Config.Match = {
 	-- jamais deux fois la même d'affilée. RANDOM_MAP = false : toujours la première.
 	MAPS = { "cratere", "piliers", "terrasses", "fosse", "passerelles" },
 	RANDOM_MAP = true,
+	MAP_VOTE = true, -- vote pour la prochaine map pendant l'écran de fin de match
 }
 
 -- Progression (XP, niveaux) et classement -------------------------------------------------

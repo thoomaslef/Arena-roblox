@@ -145,7 +145,7 @@ end
 function Combat.onPush(_who: any) end
 -- Événements pour la progression (branchés sur Profiles par Main).
 function Combat.onShot(_shooter: any) end
-function Combat.onHitScored(_attacker: any, _victim: any, _killed: boolean) end
+function Combat.onHitScored(_attacker: any, _victim: any, _killed: boolean, _weapon: string, _airborne: boolean) end
 function Combat.onDetonated(_by: any) end
 
 -- Le joueur peut-il tirer ? — le mode pourra le remplacer.
@@ -154,10 +154,21 @@ function Combat.canFire(player: Player): boolean
 end
 
 -- Applique une touche (1 vie) et prévient le tireur et la victime.
-local function applyHit(victim: any, attacker: any, from: Vector3)
+-- La victime est-elle en l'air (plus d'1 m au-dessus du sol) ? Pour le défi « touches en l'air ».
+local function isAirborne(character: Model?): boolean
+	local feet = Rocket.feetOf(character)
+	if not feet then
+		return false
+	end
+	local S = Config.STUDS_PER_METER
+	return Workspace:Raycast((feet + Vector3.new(0, 0.2, 0)) * S, Vector3.new(0, -1.2 * S, 0), world()) == nil
+end
+
+local function applyHit(victim: any, attacker: any, from: Vector3, weapon: string)
 	local victimCharacter = victim.Character -- gardé avant : il disparaît s'il est éliminé
+	local airborne = isAirborne(victimCharacter)
 	local killed = Combat.onDamage(victim, attacker)
-	Combat.onHitScored(attacker, victim, killed)
+	Combat.onHitScored(attacker, victim, killed, weapon, airborne)
 	if attacker.Parent then
 		send(attacker, "hit", victim.DisplayName, killed, victimCharacter, victim:GetAttribute("Lives"))
 	end
@@ -179,7 +190,7 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 		end
 		-- Dégâts : jamais sur soi (ni sur un allié, sans objet en 1v1).
 		if p ~= shooter and Rocket.damages(pos, n, feet, wp) then
-			applyHit(p, shooter, pos)
+			applyHit(p, shooter, pos, "rocket")
 		end
 		-- Poussée : tout le monde ; le lanceur calcule la sienne lui-même (réactivité du rocket jump).
 		local push = Rocket.push(pos, n, feet, wp)
@@ -358,7 +369,7 @@ function Combat.fireRail(player: any, eye: any, dir: any, yaw: any, claimModel: 
 	end
 	combatRemote:FireAllClients("rail", player.UserId, muzzle, stop, team)
 	if victim then
-		applyHit(victim, player, eye)
+		applyHit(victim, player, eye, "rail")
 	end
 end
 railRemote.OnServerEvent:Connect(Combat.fireRail)

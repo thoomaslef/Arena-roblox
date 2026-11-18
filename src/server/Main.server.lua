@@ -12,8 +12,13 @@ require(script.Parent.PlayerSettings) -- réglages des joueurs (touches, sensibi
 local MoveGuard = require(script.Parent.MoveGuard)
 Combat.onPush = MoveGuard.notePush
 
--- Progression (XP, niveaux, classement).
+-- Progression (XP, niveaux, classement, défis du jour) et salons privés.
 local Profiles = require(script.Parent.Profiles)
+local Rooms = require(script.Parent.Rooms)
+Profiles.isPrivateServer = Rooms.isPrivate
+Joust.allowBot = function(): boolean
+	return not Rooms.isReservedRoom() -- salon entre amis : on attend l'ami, pas de bot
+end
 local PR = Config.Progress
 local function isPlayer(p: any): boolean
 	return typeof(p) == "Instance" and p:IsA("Player")
@@ -24,16 +29,27 @@ end
 Combat.onShot = function(shooter)
 	Profiles.stat(shooter, "shots")
 end
-Combat.onHitScored = function(attacker, victim, killed)
+Combat.onHitScored = function(attacker, victim, killed, weapon, airborne)
 	Profiles.stat(attacker, "hits")
 	Profiles.addXP(attacker, PR.XP_HIT + (if killed then PR.XP_KILL else 0), multAgainst(victim))
+	Profiles.event(attacker, "hit")
+	if weapon == "rail" then
+		Profiles.stat(attacker, "railHits")
+		Profiles.event(attacker, "railHit")
+	end
+	if airborne then
+		Profiles.stat(attacker, "airshots")
+		Profiles.event(attacker, "airshot")
+	end
 	if killed then
 		Profiles.stat(attacker, "kills")
+		Profiles.event(attacker, "kill")
 	end
 end
 Combat.onDetonated = function(by)
 	Profiles.stat(by, "detonations")
 	Profiles.addXP(by, PR.XP_DETONATE)
+	Profiles.event(by, "detonate")
 end
 Joust.onMatchStarted = function(fighters)
 	Profiles.matchStarted(fighters)
@@ -43,6 +59,11 @@ Joust.onRoundWon = function(winner, loser)
 	Profiles.stat(winner, "rounds")
 	Profiles.stat(loser, "rounds")
 	Profiles.addXP(winner, PR.XP_ROUND_WON, multAgainst(loser))
+	Profiles.event(winner, "roundWon")
+	-- Manche sans perdre une vie.
+	if typeof(winner) == "Instance" and winner:GetAttribute("Lives") == Config.Joust.LIVES then
+		Profiles.event(winner, "flawless")
+	end
 end
 Joust.onMatchEnded = function(winner, loser, forfeit)
 	Profiles.matchEnded(winner, loser, forfeit)

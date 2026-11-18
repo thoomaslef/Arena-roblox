@@ -17,7 +17,8 @@ Tout se fait sur **https://create.roblox.com** → **Créations** → ton expér
 > • 3 vies par manche, premier à 11 points (2 d'écart)
 > • 5 arènes, une au hasard à chaque match
 > • Tutoriel de 2 minutes, bot d'entraînement si personne n'est en ligne
-> • Niveaux, XP et classement de saison avec un classement mondial
+> • Niveaux, XP, défis du jour et classement de saison avec un classement mondial
+> • Salons privés pour défier tes amis avec un code, vote de la map à chaque match
 > • PC, mobile et manette · touches et sensibilité réglables
 >
 > Pas de sang : style cartoon, que du skill.
@@ -33,7 +34,8 @@ Tout se fait sur **https://create.roblox.com** → **Créations** → ton expér
 > • 3 lives per round, first to 11 points (win by 2)
 > • 5 arenas, a random one every match
 > • 2-minute tutorial, practice bot when nobody is online
-> • Levels, XP and seasonal ranked mode with a world leaderboard
+> • Levels, XP, daily challenges and seasonal ranked mode with a world leaderboard
+> • Private rooms to challenge your friends with a code, map vote every match
 > • PC, mobile and gamepad · custom keys and sensitivity
 >
 > No blood: cartoon style, pure skill.
