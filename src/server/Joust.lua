@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local JoustRules = require(Shared.JoustRules)
 local Rocket = require(Shared.Rocket)
+local MapBuilder = require(Shared.MapBuilder)
 local Bots = require(script.Parent.Bot)
 
 local S = Config.STUDS_PER_METER
@@ -238,6 +239,24 @@ function Joust.newRound()
 	end)
 end
 
+-- Maps --------------------------------------------------------------------------------
+local currentMap: string? = nil
+
+-- Map du prochain match : au hasard parmi Config.Match.MAPS, différente de l'actuelle.
+local function pickMap(): string
+	local pool = Config.Match.MAPS
+	if not Config.Match.RANDOM_MAP or #pool <= 1 then
+		return pool[1]
+	end
+	local choices = {}
+	for _, name in pool do
+		if name ~= currentMap then
+			table.insert(choices, name)
+		end
+	end
+	return choices[math.random(#choices)]
+end
+
 -- Bot de remplacement ------------------------------------------------------------------
 local bot = nil -- bot en jeu (ou nil)
 local botToken = 0
@@ -288,6 +307,27 @@ local function scheduleBot()
 	end)
 end
 
+-- Construit la map `name` (src/shared/Maps) à la place de l'ancienne, et recalcule le gaz.
+function Joust.loadMap(name: string)
+	local old = Workspace:FindFirstChild("Map")
+	if old then
+		old:Destroy()
+	end
+	local data = require(ReplicatedStorage.Shared.Maps:WaitForChild(name))
+	map = MapBuilder.build(data, Workspace)
+	currentMap = name
+	print(("[Cavale] Map « %s » construite, %d spawns"):format(map.name, #map.spawns))
+	-- Gaz : même rayon que le client, à partir du centre de la map.
+	local spawnsM = {}
+	for _, cf in map.spawns do
+		table.insert(spawnsM, cf.Position / S)
+	end
+	r0 = JoustRules.initialRadius(map.sizeCells, map.zoneCenter, spawnsM)
+	matchFolder:SetAttribute("GasR0", r0)
+	matchFolder:SetAttribute("GasCenter", map.zoneCenter)
+	matchFolder:SetAttribute("MapName", map.name)
+end
+
 function Joust.startMatch(withBot: boolean?)
 	matchToken += 1
 	botToken += 1
@@ -321,6 +361,11 @@ function Joust.startMatch(withBot: boolean?)
 		end
 		return
 	end
+	-- Nouveau match : nouvelle map (tirée au hasard).
+	local nextMap = pickMap()
+	if nextMap ~= currentMap then
+		Joust.loadMap(nextMap)
+	end
 	fighters = { list[1], list[2] }
 	fighters[1]:SetAttribute("Team", 0)
 	fighters[2]:SetAttribute("Team", 1)
@@ -329,21 +374,13 @@ function Joust.startMatch(withBot: boolean?)
 	Joust.newRound()
 end
 
-function Joust.init(builtMap, combat)
-	map = builtMap
+function Joust.init(combat)
 	Combat = combat
 	matchRemote = Instance.new("RemoteEvent")
 	matchRemote.Name = "Match"
 	matchRemote.Parent = ReplicatedStorage:WaitForChild("Remotes")
 
-	-- Gaz : même rayon que le client, à partir du centre de la map.
-	local spawnsM = {}
-	for _, cf in map.spawns do
-		table.insert(spawnsM, cf.Position / S)
-	end
-	r0 = JoustRules.initialRadius(map.sizeCells, map.zoneCenter, spawnsM)
-	matchFolder:SetAttribute("GasR0", r0)
-	matchFolder:SetAttribute("GasCenter", map.zoneCenter)
+	Joust.loadMap(pickMap())
 	setState("waiting")
 	publish()
 

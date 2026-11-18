@@ -47,8 +47,10 @@ local bottomY, wallH = 0, 20 -- m
 local prevStage = 0
 local beepT = 0
 
+local measuredMap: Instance? = nil
 local function measureMap()
 	local map = Workspace:FindFirstChild("Map")
+	measuredMap = map
 	if map and map:IsA("Model") then
 		local cf, size = map:GetBoundingBox()
 		bottomY = (cf.Position.Y - size.Y / 2) / S
@@ -66,11 +68,13 @@ local function placeWall(center: Vector3, radius: number, visible: boolean)
 		end
 		return
 	end
+	-- Nouvelle map : on remesure sa hauteur et on replace le mur.
+	if Workspace:FindFirstChild("Map") ~= measuredMap then
+		measureMap()
+		lastRadius = -1
+	end
 	if math.abs(radius - lastRadius) < 0.01 then
 		return
-	end
-	if lastRadius < 0 then
-		measureMap()
 	end
 	lastRadius = radius
 	local width = 2 * math.pi * radius / SEGMENTS * 1.06

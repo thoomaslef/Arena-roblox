@@ -1,18 +1,16 @@
--- Serveur : construit la map, prépare les personnages et lance le mode 1v1.
+-- Serveur : prépare les personnages et lance le mode 1v1 (qui choisit et construit la map).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local MapBuilder = require(Shared.MapBuilder)
 local CharacterRig = require(Shared.CharacterRig)
 local Combat = require(script.Parent.Combat)
 local Joust = require(script.Parent.Joust)
 local Bots = require(script.Parent.Bot)
 
 local S = Config.STUDS_PER_METER
-local MAP_NAME = "cratere"
 
 -- Le gabarit « Baseplate » de Studio pose un sol et un point d'apparition : on les retire.
 for _, name in { "Baseplate", "SpawnLocation" } do
@@ -28,8 +26,7 @@ CharacterRig.setupCollisionGroups()
 -- C'est le mode qui décide quand les joueurs apparaissent.
 Players.CharacterAutoLoads = false
 
-local map = MapBuilder.build(require(Shared.Maps:WaitForChild(MAP_NAME)), workspace)
-print(("[Cavale] Map « %s » construite, %d spawns"):format(map.name, #map.spawns))
+-- La map est construite par le mode (Joust.init, puis une nouvelle à chaque match).
 
 -- Prépare un personnage (joueur ou bot) : posé au spawn, rig de collision, vies, armes.
 local function onCharacter(player: any, character: Model)
@@ -94,7 +91,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 Bots.setSpawner(onCharacter)
-Joust.init(map, Combat)
+Joust.init(Combat)
 
 -- Hors des limites (y < -20 m) → éliminé (« est tombé en service » / « s'est vautré »).
 local killY = Config.Move.KILL_Y * S

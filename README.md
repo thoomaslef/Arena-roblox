@@ -132,6 +132,13 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
   avec **le même contrôleur** que les joueurs (mêmes vitesses, sauts, endurance).
 - Navigation : PathfindingService de Roblox (le jeu Godot avait sa propre grille).
 
+## Maps
+
+Les 5 maps 1v1 du jeu Godot sont dans `src/shared/Maps` : **Cratère**, **Piliers**,
+**Terrasses**, **Fosse**, **Passerelles**. Une map est tirée **au hasard à chaque nouveau
+match** (jamais deux fois la même d'affilée) ; son nom s'affiche au compte à rebours.
+Réglages dans `Config.Match` : `MAPS` (la liste) et `RANDOM_MAP` (false = toujours la première).
+
 ## Règles du 1v1 (étape 5)
 
 - **Seul sur le serveur** : entraînement libre (« En attente d'un adversaire… »), pas de gaz.

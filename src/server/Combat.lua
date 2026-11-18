@@ -95,12 +95,8 @@ local rockets: { [number]: Live } = {}
 Combat.rockets = rockets
 local nextId = 0
 
-local worldParams: RaycastParams? = nil
 local function world(): RaycastParams
-	if not worldParams then
-		worldParams = Rocket.worldParams()
-	end
-	return worldParams :: RaycastParams
+	return Rocket.worldParams() -- suit le changement de map
 end
 
 -- Remis à zéro (début de manche, réapparition).

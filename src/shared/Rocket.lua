@@ -12,12 +12,19 @@ local B = Config.Body
 
 local Rocket = {}
 
--- Requêtes « monde seulement » (lignes de vue des explosions) : la map.
+-- Requêtes « monde seulement » (lignes de vue des explosions) : la map actuelle.
+-- Gardées en cache tant que la map ne change pas (elle change à chaque match).
+local cachedMap: Instance? = nil
+local cachedParams: RaycastParams? = nil
 function Rocket.worldParams(): RaycastParams
+	local map = Workspace:FindFirstChild("Map")
+	if cachedParams and map == cachedMap and map ~= nil then
+		return cachedParams
+	end
 	local p = RaycastParams.new()
 	p.FilterType = Enum.RaycastFilterType.Include
-	local map = Workspace:FindFirstChild("Map")
 	p.FilterDescendantsInstances = if map then { map } else {}
+	cachedMap, cachedParams = map, p
 	return p
 end
 

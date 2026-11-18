@@ -196,12 +196,8 @@ end
 
 -- Perception -------------------------------------------------------------------------
 
-local worldParams: RaycastParams? = nil
 local function world(): RaycastParams
-	if not worldParams then
-		worldParams = Rocket.worldParams()
-	end
-	return worldParams :: RaycastParams
+	return Rocket.worldParams() -- suit le changement de map
 end
 
 local function blocked(a: Vector3, b: Vector3): boolean

@@ -126,6 +126,10 @@ Config.Match = {
 	BOT_ENABLED = true,
 	BOT_WAIT = 15, -- s d'attente seul avant l'arrivée du bot
 	BOT_SKILL = 2, -- 1 facile, 2 moyen, 3 difficile (niveaux du bot Godot)
+	-- Maps 1v1 (fichiers de src/shared/Maps) : une au hasard à chaque nouveau match,
+	-- jamais deux fois la même d'affilée. RANDOM_MAP = false : toujours la première.
+	MAPS = { "cratere", "piliers", "terrasses", "fosse", "passerelles" },
+	RANDOM_MAP = true,
 }
 
 Config.Teams = {

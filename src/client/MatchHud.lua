@@ -178,7 +178,7 @@ local function runCountdown(round: number)
 	if type(endTime) ~= "number" then
 		return
 	end
-	local sub = ("Manche %d  ·  %d – %d"):format(round, match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0)
+	local sub = ("Manche %d  ·  %d – %d  ·  %s"):format(round, match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0, tostring(match:GetAttribute("MapName") or ""))
 	local i = myIndex()
 	if i == 1 and SND.SIREN ~= "" then
 		Fx.play(SND.SIREN, 0.6)

@@ -220,13 +220,9 @@ function CharacterAnimator.forget(model: Model)
 end
 
 -- Sol sous les pieds : la Part touchée (ou nil en l'air).
-local worldParams: RaycastParams? = nil
 local function groundPart(feet: Vector3): BasePart?
-	if not worldParams then
-		worldParams = Rocket.worldParams()
-	end
 	local from = feet + Vector3.new(0, 0.3, 0)
-	local hit = Workspace:Raycast(from * S, Vector3.new(0, -0.6 * S, 0), worldParams)
+	local hit = Workspace:Raycast(from * S, Vector3.new(0, -0.6 * S, 0), Rocket.worldParams())
 	return if hit then hit.Instance :: BasePart else nil
 end
 
