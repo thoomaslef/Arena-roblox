@@ -7,6 +7,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local CharacterRig = require(Shared.CharacterRig)
 local Combat = require(script.Parent.Combat)
+require(script.Parent.PlayerSettings) -- réglages des joueurs (touches, sensibilité)
 local Joust = require(script.Parent.Joust)
 local Bots = require(script.Parent.Bot)
 

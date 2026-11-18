@@ -16,6 +16,7 @@ local Gas = require(script.Parent.Gas)
 local CharacterAnimator = require(script.Parent.CharacterAnimator)
 local Viewmodel = require(script.Parent.Viewmodel)
 local Sfx = require(script.Parent.Sfx)
+require(script.Parent.SettingsMenu) -- menu Réglages (touche P)
 
 local aimRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Aim") :: UnreliableRemoteEvent
 local aimSendT = 0

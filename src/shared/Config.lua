@@ -58,7 +58,7 @@ Config.Body = {
 -- Caméra ----------------------------------------------------------------------
 Config.Camera = {
 	HFOV = 95, -- champ de vision HORIZONTAL (comme dans Godot, KEEP_WIDTH)
-	MOUSE_SENS = 0.0035, -- radians par pixel (multiplié par la sensibilité Roblox du joueur)
+	MOUSE_SENS = 0.0035, -- radians par pixel de mouvement brut (× sensibilité du menu Réglages)
 	GAMEPAD_SENS = 4.0, -- radians par seconde, stick à fond
 	TOUCH_SENS = 0.006, -- radians par pixel glissé
 	MAX_PITCH_DEG = 89,

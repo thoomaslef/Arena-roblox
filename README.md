@@ -89,6 +89,7 @@ où tu veux sur ton PC : elle n'est pas dans le dépôt, c'est normal.
 | Mobilité (saut, plané, sprint, wall-jump) | Espace ou clic droit | A | bouton « SAUT » |
 | Tirer (roquette) | clic gauche | RT | bouton « TIR » |
 | Marcher | Maj | L3 | — |
+| Réglages (touches, sensibilité) | P | — | bouton ⚙ |
 
 Bouton de mobilité :
 - appui bref au sol → **micro-saut** ; tenu → **saut complet** (~2,6 m) ;
@@ -171,6 +172,38 @@ Réglages dans `Config.Match` : `MAPS` (la liste) et `RANDOM_MAP` (false = toujo
   pendant le zoom du Rail.
 - Le reste de ton corps reste invisible (vue FPS) : pour voir les animations complètes,
   teste à deux (Test → Clients and Servers → 2 Players) ou contre le bot.
+
+## Sons
+
+Les bruitages sont **ceux du jeu Godot** (générés par code, comme dans `autoload/sfx.gd`),
+regroupés dans **un seul fichier** : `assets/sfx/cavale_sfx.ogg` (30 sons, 18 s). Le jeu joue
+chaque son en lisant le bon morceau du fichier. Pour les entendre, il faut mettre ce fichier
+en ligne **une fois** :
+
+1. Va sur https://create.roblox.com → **Créations** → **Éléments de développement**
+   (Development Items) → **Audio** → **Importer un élément** (Upload Asset).
+2. Choisis `assets/sfx/cavale_sfx.ogg` (dans le dossier du dépôt), nom : « Cavale SFX ».
+3. Une fois validé, ouvre l'audio, copie son **ID** (le nombre dans l'adresse de la page).
+4. Dans `src/shared/Config.lua`, mets-le dans `Config.Audio.SFX_ID` :
+   `SFX_ID = "rbxassetid://123456789",` puis enregistre (Rojo met Studio à jour).
+
+Tant que l'ID est vide, quelques sons intégrés à Roblox sont joués à la place.
+Pour régénérer la planche après avoir modifié un son : `python3 tools/make_sfx.py`
+(nécessite Python et numpy), puis remettre le fichier en ligne et changer l'ID.
+
+## Réglages (touche P ou bouton ⚙)
+
+- **Touches** : 2 touches par action (avancer, reculer, gauche, droite, mobilité, tir,
+  marcher). Clique sur une case puis appuie sur la nouvelle touche (ou un bouton de
+  souris) ; Échap annule, Retour arrière efface. Les flèches marchent toujours.
+- **Sensibilité souris** : boutons − / +. La souris est lue **en brut**, sans la
+  sensibilité de Roblox ni accélération.
+- Les réglages sont gardés pour ton compte (DataStore). Dans Studio, il faut avoir publié
+  la place et activé **Paramètres du jeu → Sécurité → Autoriser l'accès de Studio aux
+  services d'API** ; sinon ils marchent pendant la partie mais ne sont pas gardés.
+- Si la souris semble encore « accélérer » : sur Windows, Paramètres → Bluetooth et
+  appareils → Souris → Paramètres supplémentaires → onglet Options du pointeur → décoche
+  **« Améliorer la précision du pointeur »** (c'est l'accélération de Windows).
 
 ## Publier une version test
 
