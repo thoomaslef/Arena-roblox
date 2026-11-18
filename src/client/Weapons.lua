@@ -35,6 +35,7 @@ local Weapons = {
 	fireCd = 0,
 	onDetonated = nil :: (() -> ())?,
 	onOtherShot = nil :: ((muzzle: Vector3) -> ())?, -- un autre personnage vient de tirer
+	onFire = nil :: (() -> ())?, -- on vient de tirer (recul de l'arme à l'écran)
 	-- Rappels pour le HUD (branchés par Main).
 	onHit = nil :: ((victimName: string, killed: boolean) -> ())?,
 	onDamaged = nil :: ((fromPos: Vector3, lives: number?) -> ())?,
@@ -169,6 +170,9 @@ local function tryFireRail()
 	Fx.railBeam(Rail.muzzle(eye, dir, yaw), stop, Rail.color(myTeam()))
 	Fx.playAt(SND.RAIL_FIRE, eye, 0.6, 0.6)
 	railRemote:FireServer(eye, dir, yaw, claimModel, claimPoint)
+	if Weapons.onFire then
+		Weapons.onFire()
+	end
 end
 
 local function tryFire()
@@ -200,6 +204,9 @@ local function tryFire()
 	own[id] = { part = part, pos = spawn, vel = vel, prev = eye, life = 0, own = true, exploded = false, params = params }
 	Fx.playAt(SND.ROCKET_FIRE, spawn, 0.5)
 	fireRemote:FireServer(id, eye, dir, yaw)
+	if Weapons.onFire then
+		Weapons.onFire()
+	end
 end
 
 -- À chaque image.

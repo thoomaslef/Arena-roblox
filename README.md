@@ -45,6 +45,7 @@ src/client/  → StarterPlayer.StarterPlayerScripts.Client
   MatchHud.lua               score, manche, chrono, messages, fil des éliminations
   Gas.lua                    mur de gaz lacrymo, bip près du bord
   CharacterAnimator.lua      animations des autres personnages (joueur adverse, bot)
+  Viewmodel.lua              bras et arme en main à la première personne
 ```
 
 Échelle : **1 m = 3 studs** (un joueur de 1,8 m ≈ un avatar Roblox).
@@ -152,8 +153,13 @@ En haut à gauche, un petit texte affiche la vitesse (m/s) et l'état, pour comp
   petit **recul** du buste à chaque tir.
 - Ce sont les animations de l'avatar (packs d'animations équipés compris), sinon celles de
   Roblox par défaut.
-- Ton propre corps reste invisible (vue FPS) : pour voir les animations, teste à deux
-  (Test → Clients and Servers → 2 Players) ou contre le bot.
+- **Vue à la première personne** : tu vois tes **bras** et l'**arme en main** (lance-roquettes
+  ou Rail, mêmes modèles que dans Godot). Tenue selon le camp : Flics manches SWAT bleues et
+  gants, Bandits avant-bras nus et bracelets orange. L'arme balance avec la souris, suit la
+  course, recule à chaque tir, descend / remonte quand on change d'arme, et disparaît
+  pendant le zoom du Rail.
+- Le reste de ton corps reste invisible (vue FPS) : pour voir les animations complètes,
+  teste à deux (Test → Clients and Servers → 2 Players) ou contre le bot.
 
 ## Publier une version test
 

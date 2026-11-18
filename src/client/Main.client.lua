@@ -14,6 +14,7 @@ local Weapons = require(script.Parent.Weapons)
 local MatchHud = require(script.Parent.MatchHud)
 local Gas = require(script.Parent.Gas)
 local CharacterAnimator = require(script.Parent.CharacterAnimator)
+local Viewmodel = require(script.Parent.Viewmodel)
 
 local aimRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Aim") :: UnreliableRemoteEvent
 local aimSendT = 0
@@ -25,6 +26,9 @@ end
 Weapons.onDetonated = function()
 	Hud.showHit(false)
 	MatchHud.killfeed("Roquette détruite en vol !", Config.Rail.BEAM_COLOR)
+end
+Weapons.onFire = function()
+	Viewmodel.kick()
 end
 Weapons.onOtherShot = function(muzzle)
 	CharacterAnimator.kickNear(muzzle)
@@ -84,6 +88,8 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	if ctrl and ctrl.root.Parent then
 		FpsCamera.update(dt, ctrl:eyePosition())
 	end
+	-- Bras et arme en main, juste après la caméra.
+	Viewmodel.update(dt, ctrl, Weapons.weapon, FpsCamera.yaw, FpsCamera.pitch)
 	Hud.update(ctrl)
 	CharacterAnimator.update(dt)
 	-- Inclinaison de notre visée, pour que l'adversaire voie où on vise (~15 fois par seconde).
