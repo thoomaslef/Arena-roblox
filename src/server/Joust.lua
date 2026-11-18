@@ -270,6 +270,10 @@ function Joust.newRound()
 		matchFolder:SetAttribute("LiveStart", Workspace:GetServerTimeNow())
 		for _, p in { p1, p2 } do
 			applyFreeze(p)
+			-- GO : réserve de roquettes vide, la recharge part de maintenant.
+			if Config.Rocket.START_EMPTY then
+				Combat.emptyRockets(p)
+			end
 		end
 	end)
 end

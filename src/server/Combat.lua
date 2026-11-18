@@ -104,6 +104,19 @@ function Combat.resetArms(player: any)
 	arms[player] = { charges = R.CHARGES, rail = RL.CHARGES, t = os.clock(), lastFire = -math.huge, lastRail = -math.huge }
 end
 
+-- Vide la réserve de roquettes (début de manche) ; la recharge repart de maintenant.
+function Combat.emptyRockets(player: any)
+	local a = arms[player]
+	if not a then
+		Combat.resetArms(player)
+		a = arms[player]
+	end
+	local now = os.clock()
+	a.rail = math.min(RL.CHARGES, a.rail + (now - a.t) / RL.RELOAD)
+	a.charges = 0
+	a.t = now
+end
+
 local function armsOf(player: any): Arms
 	local a = arms[player]
 	if not a then
@@ -115,6 +128,11 @@ local function armsOf(player: any): Arms
 	a.charges = math.min(R.CHARGES, a.charges + (now - a.t) / R.RELOAD)
 	a.rail = math.min(RL.CHARGES, a.rail + (now - a.t) / RL.RELOAD)
 	a.t = now
+	-- Compte à rebours d'une manche : aucune roquette, la recharge ne démarre qu'au GO.
+	local character = if typeof(player) == "Instance" or type(player) == "table" then player.Character else nil
+	if R.START_EMPTY and character and character:GetAttribute("Frozen") == true then
+		a.charges = 0
+	end
 	return a
 end
 

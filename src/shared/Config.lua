@@ -75,6 +75,7 @@ Config.Rocket = {
 	PUSH_UP = 0.35,
 	LIFETIME = 5.0,
 	MUZZLE_FORWARD = 0.5,
+	START_EMPTY = true, -- début de manche : aucune roquette chargée, la recharge démarre au GO
 	KNOCK_TIME = 0.2, -- juste après une poussée, le sol ne freine pas
 	KNOCK_MIN_VY = 3.5, -- une poussée au sol décolle au moins à cette vitesse
 	-- Tolérances du serveur (anti-triche) : le réseau décale un peu les horloges.

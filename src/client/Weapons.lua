@@ -251,6 +251,10 @@ function Weapons.update(dt: number, fireHeld: boolean)
 	if Weapons.railCharges < RL.CHARGES then
 		Weapons.railCharges = math.min(RL.CHARGES, Weapons.railCharges + dt / RL.RELOAD)
 	end
+	-- Compte à rebours d'une manche : aucune roquette (comme le serveur), recharge dès le GO.
+	if R.START_EMPTY and ctrl and ctrl.character:GetAttribute("Frozen") == true then
+		Weapons.charges = 0
+	end
 	-- L'arme dépend du bloc sous les pieds (gardée en l'air jusqu'au prochain sol).
 	if ctrl then
 		Weapons.weapon = if ctrl.surface == "rail" then "rail" else "rocket"
