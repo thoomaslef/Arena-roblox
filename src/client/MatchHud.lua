@@ -303,9 +303,8 @@ rewardsRemote.OnClientEvent:Connect(function(kind, r)
 	end
 	if r.vsBot then
 		table.insert(lines, Lang.t("rw.vs_bot"))
-	elseif r.ranked == false then
-		-- Serveur privé : pas de points classés.
-	elseif type(r.ratingDelta) == "number" then
+	elseif r.ranked ~= false and type(r.ratingDelta) == "number" then
+		-- (Serveur privé : ranked = false, pas de points classés.)
 		local rankName = if r.rankKey and r.rankKey ~= "unranked" then Lang.t("rank." .. r.rankKey) else Lang.t("menu.unranked", math.max(1, Config.Ranked.PLACEMENT_GAMES - ((player:GetAttribute("RankedGames") or 0))))
 		table.insert(lines, Lang.t("rw.rating", r.ratingDelta, rankName))
 	end

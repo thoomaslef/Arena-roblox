@@ -61,12 +61,10 @@ local lastWeapon = "rocket"
 -- sur notre client n'est pas envoyé au serveur : les autres joueurs nous voient normalement.
 local function hideLocalBody(character: Model)
 	local function hide(d: Instance)
-		if d:IsA("BasePart") then
-			d.LocalTransparencyModifier = 1
-			d.Transparency = 1
-		elseif d:IsA("Decal") then
-			d.LocalTransparencyModifier = 1
-			d.Transparency = 1
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			local visual: any = d
+			visual.LocalTransparencyModifier = 1
+			visual.Transparency = 1
 		end
 	end
 	for _, d in character:GetDescendants() do

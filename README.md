@@ -307,6 +307,12 @@ champ de vision, sensibilités tactile et manette, forme et couleur du réticule
 5. À chaque nouvelle version : récupère les commits, Rojo met Studio à jour, puis
    **Fichier → Publier sur Roblox** à nouveau.
 
+## Vérifier le code (optionnel)
+
+[Selene](https://github.com/Kampfkarren/selene) repère les fautes de syntaxe et les variables
+non définies avant même de lancer Studio : `selene src` à la racine du dépôt (configuration :
+`selene.toml` et `roblox_min.yml`). Installation : `cargo install selene` ou via Rokit.
+
 ## Que tester et me renvoyer
 
 - Le **ressenti** : vitesse de course, hauteur du saut, plané, sprint, wall-jump.

@@ -1,0 +1,9 @@
+# Vérification du code Luau avec Selene (https://github.com/Kampfkarren/selene) :
+#   selene src
+# roblox_min.yml liste les noms globaux de Roblox (game, Vector3, Enum…).
+std = "roblox_min"
+
+[lints]
+unused_variable = "allow"
+shadowing = "allow"
+multiple_statements = "allow"
