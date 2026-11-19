@@ -77,12 +77,12 @@ local column = make("Frame", {
 	BackgroundTransparency = 1,
 	Position = UDim2.new(0, 60, 0.5, 0),
 	AnchorPoint = Vector2.new(0, 0.5),
-	Size = UDim2.fromOffset(560, 600),
+	Size = UDim2.fromOffset(560, 650),
 	Parent = gui,
 })
 
 text(column, { Text = "CAVALE", Font = Enum.Font.GothamBlack, TextSize = 96, TextColor3 = ACCENT, TextStrokeTransparency = 0.6, Size = UDim2.new(1, 0, 0, 100) })
-Lang.bind(text(column, { Font = Enum.Font.GothamBold, TextSize = 20, Position = UDim2.fromOffset(4, 100), Size = UDim2.new(1, 0, 0, 26) }), "menu.subtitle")
+Lang.bind(text(column, { Font = Enum.Font.GothamBold, TextSize = 20, Position = UDim2.fromOffset(4, 100), Size = UDim2.new(1, 0, 0, 26) }), if match:GetAttribute("Mode") == "elite" then "el.subtitle" else "menu.subtitle")
 Lang.bind(text(column, {
 	Font = Enum.Font.Gotham,
 	TextSize = 16,
@@ -91,7 +91,7 @@ Lang.bind(text(column, {
 	Position = UDim2.fromOffset(4, 134),
 	Size = UDim2.new(1, -10, 0, 44),
 	TextYAlignment = Enum.TextYAlignment.Top,
-}), "menu.pitch")
+}), if match:GetAttribute("Mode") == "elite" then "el.pitch" else "menu.pitch")
 
 local function teamCard(team: number, x: number, key: string)
 	local card = make("Frame", {
@@ -148,12 +148,19 @@ for _, b in { inviteButton, roomButton } do
 	b.TextSize = 17
 end
 
+-- Changer de mode : 1v1 ↔ 3v3 (téléportation vers l'autre place de l'expérience).
+local isEliteMode = match:GetAttribute("Mode") == "elite"
+local modeButton = bigButton(if isEliteMode then "mode.to_joust" else "mode.to_elite", 516, false)
+modeButton.Size = UDim2.new(1, 0, 0, 40)
+modeButton.TextSize = 17
+modeButton.BackgroundColor3 = if isEliteMode then TEAMS[1].color:Lerp(Color3.new(0, 0, 0), 0.35) else TEAMS[0].color:Lerp(Color3.new(0, 0, 0), 0.35)
+
 local hintLabel = text(column, {
 	Font = Enum.Font.Gotham,
 	TextSize = 14,
 	TextWrapped = true,
 	TextColor3 = Color3.fromRGB(180, 186, 200),
-	Position = UDim2.fromOffset(2, 516),
+	Position = UDim2.fromOffset(2, 566),
 	Size = UDim2.new(1, 0, 0, 40),
 	TextYAlignment = Enum.TextYAlignment.Top,
 })
@@ -461,6 +468,18 @@ joinButton.MouseButton1Click:Connect(function()
 	roomStatus.Text = Lang.t("room.wait")
 	roomsRemote:FireServer("join", codeBox.Text)
 end)
+modeButton.MouseButton1Click:Connect(function()
+	hintLabel.Text = Lang.t("mode.wait")
+	roomsRemote:FireServer("switchMode")
+end)
+roomsRemote.OnClientEvent:Connect(function(kind, data)
+	if kind == "error" and type(data) == "string" and not dialog.Visible then
+		hintLabel.Text = Lang.t(data)
+		task.delay(5, function()
+			hintLabel.Text = Lang.t("menu.hint")
+		end)
+	end
+end)
 roomsRemote.OnClientEvent:Connect(function(kind, data)
 	if kind == "error" and type(data) == "string" then
 		roomStatus.Text = Lang.t(data)
@@ -548,6 +567,11 @@ function MainMenu.update(dt: number, settingsOpen: boolean)
 	local cam = Workspace.CurrentCamera
 	local center = match:GetAttribute("GasCenter")
 	local r0 = match:GetAttribute("GasR0")
+	if typeof(center) ~= "Vector3" then
+		-- 3v3 : pas de gaz, on tourne autour du poteau.
+		center = match:GetAttribute("PolePos")
+		r0 = 22
+	end
 	if cam and typeof(center) == "Vector3" and type(r0) == "number" then
 		orbitT += dt
 		local a = orbitT * 0.08

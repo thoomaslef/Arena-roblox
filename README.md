@@ -215,6 +215,36 @@ Les tirs étaient déjà vérifiés (charges, cadence, position, touches crédib
 - Sauvegarde : DataStore (comme les réglages : dans Studio, il faut l'accès aux services
   d'API, voir « Réglages »).
 
+## Mode 3v3 « Évasion » (l'Élite de ShootMania)
+
+Portage du mode Évasion du jeu Godot (`scripts/modes/elite.gd`), sur la map **Bastion**.
+
+- Chaque manche : **1 attaquant** (3 armures, **Rail partout**) contre **3 défenseurs**
+  (1 armure, roquettes : 4 charges rechargées en 1,6 s, Rail sur les plateformes). Les deux
+  coéquipiers de l'attaquant regardent la manche (caméra qui suit l'attaquant).
+- **L'attaquant gagne** (+1 point pour son équipe) en éliminant les 3 défenseurs ou en restant
+  **2 s** dans la zone du **poteau**, qui s'active au bout de **15 s**. **La défense gagne** en
+  l'éliminant ou au bout de **60 s** (sans point : seules les attaques réussies comptent).
+- Le Rail retire **2 armures**, la roquette **1**. Pas de dégâts entre coéquipiers.
+- Les équipes alternent l'attaque, l'attaquant change à chaque tour. **Premier à 5 points
+  avec 2 d'écart** (9 maximum). Places vides complétées par des **bots** (après 10 s
+  d'attente). Pas classé (XP, défis et statistiques comptent).
+- Réglages : `Config.Elite`.
+
+**Tester dans Studio** : nouvelle place (Baseplate), puis dans VS Code **Rojo → elite.project.json**
+(au lieu de default.project.json), **Connect** dans Studio, **F5**, **JOUER** : au bout de 10 s,
+le match démarre avec 5 bots.
+
+**Publier** (le 3v3 vit dans une **deuxième place** de la même expérience, avec 6 joueurs) :
+1. Ouvre ta place 1v1 publiée dans Studio, puis **Affichage → Gestionnaire de ressources**
+   (Asset Manager) → **Places** → clic droit → **Ajouter une nouvelle place**.
+2. Ouvre cette nouvelle place, connecte Rojo avec **elite.project.json**, puis
+   **Fichier → Publier sur Roblox**.
+3. Dans les paramètres de cette place : **nombre max. de joueurs : 6**.
+4. Récupère les **ID des deux places** (Creator Hub → Créations → ton expérience → Places)
+   et mets-les dans `Config.Places` (`JOUST` = la place 1v1, `ELITE` = la place 3v3) :
+   le bouton **MODE 3V3 / MODE 1V1** de l'accueil fera alors passer d'un mode à l'autre.
+
 ## Statistiques et défis du jour
 
 - **Accueil → onglet STATS** : matchs, victoires, taux de victoire, manches gagnées,

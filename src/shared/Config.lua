@@ -133,6 +133,36 @@ Config.Match = {
 	MAP_VOTE = true, -- vote pour la prochaine map pendant l'écran de fin de match
 }
 
+-- Mode 3v3 « Évasion » (l'Élite de ShootMania) — portage de scripts/modes/elite.gd.
+-- 1 attaquant (3 armures, Rail partout) contre 3 défenseurs (1 armure, roquette, Rail sur les
+-- plateformes). L'attaquant gagne en éliminant la défense ou en capturant le poteau ; la défense
+-- gagne en l'éliminant ou au bout du temps. Les équipes alternent l'attaque, l'attaquant tourne.
+Config.Elite = {
+	MAP = "bastion",
+	ATTACKER_LIVES = 3,
+	DEFENDER_LIVES = 1,
+	RAIL_DAMAGE = 2, -- le Rail retire 2 armures ; la roquette, 1
+	ROCKET_CHARGES = 4,
+	ROCKET_RELOAD = 1.6, -- s par roquette (comme l'Élite de ShootMania)
+	ROUND_TIME = 60,
+	POLE_UNLOCK = 15, -- s avant que le poteau puisse être capturé
+	CAPTURE_TIME = 2.0,
+	CAPTURE_RADIUS = 3.0, -- m
+	CAPTURE_HEIGHT = 2.5, -- m d'écart vertical max avec le poteau
+	WIN_SCORE = 5,
+	WIN_GAP = 2,
+	MAX_SCORE = 9,
+	ROUND_END_PAUSE = 3.5,
+	FILL_WAIT = 10, -- s d'attente d'autres joueurs avant de compléter avec des bots
+}
+
+-- Places de l'expérience (pour passer du 1v1 au 3v3) : ID visibles dans le Creator Hub,
+-- Créations → ton expérience → Places. 0 = pas encore publiée.
+Config.Places = {
+	JOUST = 0,
+	ELITE = 0,
+}
+
 -- Progression (XP, niveaux) et classement -------------------------------------------------
 Config.Progress = {
 	XP_MATCH_PLAYED = 40,

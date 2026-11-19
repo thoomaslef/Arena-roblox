@@ -293,7 +293,7 @@ function Hud.showDamaged()
 	TweenService:Create(damageFlash, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
 end
 
-function Hud.updateWeapons(charges: number, weapon: string?, railCharges: number?)
+function Hud.updateWeapons(charges: number, weapon: string?, railCharges: number?, maxCharges: number?)
 	local rail = weapon == "rail"
 	chargeBar.Visible = not rail
 	railBack.Visible = rail
@@ -302,14 +302,22 @@ function Hud.updateWeapons(charges: number, weapon: string?, railCharges: number
 	local rc = math.clamp(railCharges or 0, 0, 1)
 	railFill.Size = UDim2.fromScale(rc, 1)
 	railFill.BackgroundTransparency = if rc < 1 then 0.45 else 0
+	-- Autant de segments que de roquettes possibles (5 en 1v1, 4 en 3v3).
+	local maxC = maxCharges or CHARGES
 	for i, fill in chargeFills do
+		fill.Parent.Visible = i <= maxC
 		local k = math.clamp(charges - (i - 1), 0, 1)
 		fill.Size = UDim2.fromScale(k, 1)
 		fill.BackgroundTransparency = if k < 1 then 0.45 else 0
 	end
-	local lives = Players.LocalPlayer:GetAttribute("Lives")
+	-- Pastilles de vie : autant que les vies de départ (3, ou 1 pour un défenseur en 3v3).
+	local lp = Players.LocalPlayer
+	local lives = lp:GetAttribute("Lives")
 	lives = if type(lives) == "number" then lives else LIVES
+	local maxLives = lp:GetAttribute("MaxLives")
+	maxLives = if type(maxLives) == "number" then maxLives else LIVES
 	for i, pip in lifePips do
+		pip.Visible = i <= maxLives
 		pip.BackgroundTransparency = if i <= lives then 0 else 0.85
 	end
 end

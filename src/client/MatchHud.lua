@@ -86,6 +86,24 @@ local _, name2, num2 = scoreBox(1)
 local mid = label({ Size = UDim2.fromOffset(170, 22), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), TextSize = 16, Text = "", Parent = top })
 local timer = label({ Size = UDim2.fromOffset(170, 26), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 24), TextSize = 22, Font = Enum.Font.GothamBlack, Text = "", Parent = top })
 local status = label({ Size = UDim2.fromOffset(600, 24), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 80), TextSize = 18, Text = "", Parent = gui })
+-- Barre de capture du poteau (3v3).
+local ACCENT_COLOR = Color3.fromRGB(255, 200, 80)
+local captureBack = Instance.new("Frame")
+captureBack.BorderSizePixel = 0
+captureBack.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
+captureBack.BackgroundTransparency = 0.3
+captureBack.AnchorPoint = Vector2.new(0.5, 0)
+captureBack.Position = UDim2.new(0.5, 0, 0, 108)
+captureBack.Size = UDim2.fromOffset(320, 12)
+captureBack.Visible = false
+captureBack.Parent = gui
+Instance.new("UICorner", captureBack).CornerRadius = UDim.new(1, 0)
+local captureFill = Instance.new("Frame")
+captureFill.BorderSizePixel = 0
+captureFill.Size = UDim2.fromScale(0, 1)
+captureFill.Parent = captureBack
+Instance.new("UICorner", captureFill).CornerRadius = UDim.new(1, 0)
+local updateElite: (string) -> ()
 
 -- Message central -------------------------------------------------------------------
 local centerTitle = label({ Size = UDim2.fromOffset(900, 70), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.32), TextSize = 54, Font = Enum.Font.GothamBlack, Text = "", TextTransparency = 1, TextStrokeTransparency = 1, Parent = gui })
@@ -140,7 +158,20 @@ end
 gui.Parent = player:WaitForChild("PlayerGui")
 
 -- Aides -------------------------------------------------------------------------------------
+local function isElite(): boolean
+	return match:GetAttribute("Mode") == "elite"
+end
+MatchHud.isElite = isElite
+
 local function myIndex(): number?
+	if isElite() then
+		-- 3v3 : notre camp (1 = Flics, 2 = Bandits) si on joue ce match.
+		local t = player:GetAttribute("Team")
+		if player:GetAttribute("Mode") == "play" and player:GetAttribute("Role") ~= nil and type(t) == "number" then
+			return t + 1
+		end
+		return nil
+	end
 	if match:GetAttribute("UserId1") == player.UserId then
 		return 1
 	elseif match:GetAttribute("UserId2") == player.UserId then
@@ -182,6 +213,11 @@ local function runCountdown(round: number)
 		return
 	end
 	local sub = Lang.t("m.countdown_sub", round, match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0, Lang.mapName(match:GetAttribute("MapName")))
+	if isElite() then
+		local role = player:GetAttribute("Role")
+		local roleKey = if role == "attacker" then "el.role_attack" elseif role == "defender" then "el.role_defend" else "el.role_watch"
+		sub = Lang.t("el.countdown_sub", round, tostring(match:GetAttribute("Attacker") or "?"), Lang.teamName(match:GetAttribute("AttackTeam") or 0), Lang.t(roleKey))
+	end
 	local shown = -1
 	while true do
 		local left = endTime - Workspace:GetServerTimeNow()
@@ -220,12 +256,27 @@ matchRemote.OnClientEvent:Connect(function(kind: string, ...)
 		if i ~= nil and not (math.max(s1, s2) >= Config.Joust.WIN_SCORE and math.abs(s1 - s2) >= Config.Joust.WIN_GAP) then
 			Sfx.play(if i == winner then "win" else "lose")
 		end
+	elseif kind == "eliteResult" then
+		-- 3v3 : fin de manche (attaque réussie ou défense réussie).
+		local winTeam, byAttack, reasonKey = ...
+		local s1, s2 = match:GetAttribute("Score1") or 0, match:GetAttribute("Score2") or 0
+		local title = Lang.t(if byAttack then "el.attack_won" else "el.defense_won")
+		local sub = Lang.t("el.result_sub", Lang.t(reasonKey or ""), Lang.teamName(0), s1, s2, Lang.teamName(1))
+		MatchHud.centerMessage(title, 3, lighten(TEAMS[winTeam or 0].color), sub)
+		local i = myIndex()
+		if i ~= nil then
+			Sfx.play(if i == (winTeam or 0) + 1 then "win" else "lose")
+		end
+	elseif kind == "poleActive" then
+		MatchHud.centerMessage(Lang.t("el.pole_active"), 1.4, lighten(TEAMS[match:GetAttribute("AttackTeam") or 0].color))
+		Sfx.play("go", -4)
 	elseif kind == "matchEnd" then
 		local winner, s1, s2 = ...
 		local champ = match:GetAttribute("Name" .. winner) or "?"
 		local i = myIndex()
 		local title = if i == nil then Lang.t("m.duel_over") elseif i == winner then Lang.t("m.victory") else Lang.t("m.defeat")
-		MatchHud.centerMessage(title, 7, lighten(TEAMS[winner - 1].color), Lang.t("m.champ", champ, s1, s2))
+		local sub = if isElite() then Lang.t("el.champ", Lang.teamName(winner - 1), s1, s2) else Lang.t("m.champ", champ, s1, s2)
+		MatchHud.centerMessage(title, 7, lighten(TEAMS[winner - 1].color), sub)
 		if i ~= nil then
 			Sfx.play(if i == winner then "win" else "lose")
 		end
@@ -453,17 +504,22 @@ function MatchHud.update(gasStage: number, warn: boolean)
 	name2.Text = fighterName(2, 1)
 	num1.Text = tostring(match:GetAttribute("Score1") or 0)
 	num2.Text = tostring(match:GetAttribute("Score2") or 0)
+	captureBack.Visible = false
 	if state == "waiting" then
 		mid.Text = Lang.t("m.training")
 		timer.Text = ""
 		local botAt = match:GetAttribute("BotAt")
 		if type(botAt) == "number" then
 			local left = math.max(0, math.ceil(botAt - Workspace:GetServerTimeNow()))
-			status.Text = Lang.t("m.waiting_bot", left)
+			status.Text = Lang.t(if isElite() then "el.waiting_fill" else "m.waiting_bot", left)
 		else
 			status.Text = Lang.t("m.waiting")
 		end
 		status.TextColor3 = Color3.new(1, 1, 1)
+		return
+	end
+	if isElite() then
+		updateElite(state)
 		return
 	end
 	mid.Text = Lang.t("m.round_gas", match:GetAttribute("Round") or 0, gasStage)
@@ -475,6 +531,43 @@ function MatchHud.update(gasStage: number, warn: boolean)
 		status.TextColor3 = TOXIC
 	else
 		status.Text = ""
+	end
+end
+
+-- (Suite de MatchHud.update pour le 3v3 : chrono, attaquant, défenseurs, poteau, capture.)
+updateElite = function(state: string)
+	local now = Workspace:GetServerTimeNow()
+	mid.Text = Lang.t("el.round", match:GetAttribute("Round") or 0)
+	local roundEnd = match:GetAttribute("RoundEnd")
+	if state == "live" and type(roundEnd) == "number" then
+		local left = math.max(0, math.ceil(roundEnd - now))
+		timer.Text = ("%d:%02d"):format(left // 60, left % 60)
+	else
+		timer.Text = ""
+	end
+	local unlock = match:GetAttribute("PoleUnlock")
+	local poleText = Lang.t("el.pole_on")
+	if state ~= "live" or (type(unlock) == "number" and unlock > now) then
+		local secs = if type(unlock) == "number" then math.max(0, math.ceil(unlock - now)) else Config.Elite.POLE_UNLOCK
+		poleText = Lang.t("el.pole_in", secs)
+	end
+	local attackTeam = match:GetAttribute("AttackTeam") or 0
+	status.Text = Lang.t("el.status", tostring(match:GetAttribute("Attacker") or "?"), Lang.teamName(attackTeam), match:GetAttribute("DefendersAlive") or 0, poleText)
+	status.TextColor3 = Color3.new(1, 1, 1)
+	-- Capture du poteau : barre de progression ; alerte pour les défenseurs.
+	local cap = match:GetAttribute("Capture") or 0
+	if state == "live" and cap > 0 then
+		captureBack.Visible = true
+		captureFill.Size = UDim2.fromScale(math.clamp(cap, 0, 1), 1)
+		captureFill.BackgroundColor3 = TEAMS[attackTeam].color
+		local role = player:GetAttribute("Role")
+		if role == "attacker" then
+			status.Text = Lang.t("el.capturing")
+			status.TextColor3 = ACCENT_COLOR
+		elseif role == "defender" then
+			status.Text = Lang.t("el.danger")
+			status.TextColor3 = Color3.fromRGB(255, 80, 80)
+		end
 	end
 end
 

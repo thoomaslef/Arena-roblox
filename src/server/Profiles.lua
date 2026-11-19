@@ -257,6 +257,53 @@ function Profiles.matchStarted(players: { any })
 	end
 end
 
+-- Fin de match par équipe (3v3) : XP, victoires, séries, défis. Pas de classement (le
+-- classement Elo est celui du 1v1).
+function Profiles.teamMatchEnded(winners: { any }, losers: { any }, forfeit: boolean?)
+	local function each(list: { any }, won: boolean)
+		for _, p in list do
+			local prof = Profiles.get(p)
+			if prof then
+				local before = prof.level
+				prof.stats.matches += 1
+				Profiles.addXP(p, P.XP_MATCH_PLAYED)
+				if won then
+					Profiles.stat(p, "wins")
+					Profiles.addXP(p, P.XP_MATCH_WON)
+					prof.stats.streak = (prof.stats.streak or 0) + 1
+					prof.stats.bestStreak = math.max(prof.stats.bestStreak or 0, prof.stats.streak)
+					Profiles.event(p, "matchWon")
+				else
+					prof.stats.streak = 0
+				end
+				Profiles.event(p, "matchPlayed")
+				if p.Parent then
+					local ms = matchStats[p] or {}
+					rewardsRemote:FireClient(p, "rewards", {
+						stats = {
+							accuracy = if (ms.shots or 0) > 0 then math.floor((ms.hits or 0) / ms.shots * 100 + 0.5) else 0,
+							hits = ms.hits or 0,
+							kills = ms.kills or 0,
+						},
+						ranked = false,
+						xp = matchXp[p] or 0,
+						level = prof.level,
+						levelUp = prof.level > before,
+						vsBot = false,
+						forfeit = forfeit == true,
+					})
+				end
+				matchXp[p] = 0
+				matchStats[p] = nil
+				publish(p)
+				task.spawn(save, p)
+			end
+		end
+	end
+	each(winners, true)
+	each(losers, false)
+end
+
 -- Fin de match. winner / loser : combattants (joueur ou bot). forfeit : le perdant est parti.
 function Profiles.matchEnded(winner: any, loser: any, forfeit: boolean?)
 	local vsBot = not (isPlayer(winner) and isPlayer(loser))

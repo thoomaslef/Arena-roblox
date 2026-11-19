@@ -64,6 +64,14 @@ function Weapons.setController(c)
 	ctrl = c
 end
 
+-- Roquettes du joueur : nombre max et recharge (3v3 : 4 roquettes, 1,6 s ; sinon Config).
+function Weapons.rocketParams(): (number, number)
+	local c = ctrl and ctrl.character
+	local maxR = c and c:GetAttribute("RocketMax")
+	local reload = c and c:GetAttribute("RocketReload")
+	return (if type(maxR) == "number" then maxR else R.CHARGES), (if type(reload) == "number" then reload else R.RELOAD)
+end
+
 function Weapons.reset()
 	Weapons.charges = R.CHARGES
 	Weapons.railCharges = RL.CHARGES
@@ -245,19 +253,25 @@ end
 function Weapons.update(dt: number, fireHeld: boolean)
 	Weapons.fireCd = math.max(0, Weapons.fireCd - dt)
 	-- Les deux armes se rechargent en continu, même celle qu'on n'a pas en main.
-	if Weapons.charges < R.CHARGES then
-		Weapons.charges = math.min(R.CHARGES, Weapons.charges + dt / R.RELOAD)
+	local maxR, reload = Weapons.rocketParams()
+	if Weapons.charges < maxR then
+		Weapons.charges = math.min(maxR, Weapons.charges + dt / reload)
+	elseif Weapons.charges > maxR then
+		Weapons.charges = maxR
 	end
 	if Weapons.railCharges < RL.CHARGES then
 		Weapons.railCharges = math.min(RL.CHARGES, Weapons.railCharges + dt / RL.RELOAD)
 	end
 	-- Compte à rebours d'une manche : aucune roquette (comme le serveur), recharge dès le GO.
-	if R.START_EMPTY and ctrl and ctrl.character:GetAttribute("Frozen") == true then
+	local matchMode = ReplicatedStorage:FindFirstChild("Match") and ReplicatedStorage.Match:GetAttribute("Mode")
+	if R.START_EMPTY and matchMode ~= "elite" and ctrl and ctrl.character:GetAttribute("Frozen") == true then
 		Weapons.charges = 0
 	end
 	-- L'arme dépend du bloc sous les pieds (gardée en l'air jusqu'au prochain sol).
 	if ctrl then
-		Weapons.weapon = if ctrl.surface == "rail" then "rail" else "rocket"
+		-- 3v3 : l'attaquant a le Rail partout (attribut ForcedWeapon posé par le serveur).
+		local forced = ctrl.character:GetAttribute("ForcedWeapon")
+		Weapons.weapon = if forced == "rail" or ctrl.surface == "rail" then "rail" else "rocket"
 	end
 	if fireHeld then
 		tryFire()

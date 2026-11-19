@@ -21,6 +21,7 @@ local SettingsMenu = require(script.Parent.SettingsMenu) -- menu Réglages (touc
 local MainMenu = require(script.Parent.MainMenu) -- écran d'accueil
 local Tutorial = require(script.Parent.Tutorial)
 local TouchControls = require(script.Parent.TouchControls)
+local Spectate = require(script.Parent.Spectate)
 MainMenu.onSettings = SettingsMenu.toggle
 
 local aimRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Aim") :: UnreliableRemoteEvent
@@ -103,7 +104,7 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	FpsCamera.applyLook(Input.consumeLook())
 	Weapons.update(dt, Input.fireHeld) -- (le tir vérifie lui-même qu'on a un personnage)
 	FpsCamera.zoomTarget = if ctrl and ctrl.zooming then Config.Rail.ZOOM_FACTOR else 1
-	Hud.updateWeapons(Weapons.charges, Weapons.weapon, Weapons.railCharges)
+	Hud.updateWeapons(Weapons.charges, Weapons.weapon, Weapons.railCharges, (Weapons.rocketParams()))
 	if Weapons.weapon ~= lastWeapon then
 		lastWeapon = Weapons.weapon
 		Sfx.play("switch", -8)
@@ -123,6 +124,8 @@ RunService:BindToRenderStep("CavaleCamera", Enum.RenderPriority.Camera.Value + 1
 	local uiOpen = MainMenu.isOpen() or SettingsMenu.isOpen() or MatchHud.isVoting()
 	Input.menuOpen = uiOpen
 	FpsCamera.cursorFree = uiOpen
+	-- 3v3 : sans personnage pendant un match, on regarde l'attaquant.
+	Spectate.update(dt, ctrl ~= nil and ctrl.root.Parent ~= nil, MainMenu.isOpen())
 	CharacterAnimator.update(dt)
 	-- Inclinaison de notre visée, pour que l'adversaire voie où on vise (~15 fois par seconde).
 	aimSendT -= dt

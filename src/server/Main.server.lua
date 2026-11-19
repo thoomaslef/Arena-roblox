@@ -1,4 +1,7 @@
--- Serveur : prépare les personnages et lance le mode 1v1 (qui choisit et construit la map).
+-- Serveur : prépare les personnages et lance le mode de jeu (qui construit la map) :
+--   * 1v1 « Règlement de comptes » (Joust) : la place principale ;
+--   * 3v3 « Évasion » (Elite) : place à part, lancée avec elite.project.json (attribut
+--     CavaleMode = "elite" sur ReplicatedStorage) ou dont l'ID est Config.Places.ELITE.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -7,7 +10,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local CharacterRig = require(Shared.CharacterRig)
 local Combat = require(script.Parent.Combat)
-local Joust = require(script.Parent.Joust)
+
+local MODE = ReplicatedStorage:GetAttribute("CavaleMode")
+if MODE ~= "elite" and MODE ~= "joust" then
+	MODE = if Config.Places.ELITE ~= 0 and game.PlaceId == Config.Places.ELITE then "elite" else "joust"
+end
+local Mode = if MODE == "elite" then require(script.Parent.Elite) else require(script.Parent.Joust)
 require(script.Parent.PlayerSettings) -- réglages des joueurs (touches, sensibilité)
 local MoveGuard = require(script.Parent.MoveGuard)
 Combat.onPush = MoveGuard.notePush
@@ -16,7 +24,7 @@ Combat.onPush = MoveGuard.notePush
 local Profiles = require(script.Parent.Profiles)
 local Rooms = require(script.Parent.Rooms)
 Profiles.isPrivateServer = Rooms.isPrivate
-Joust.allowBot = function(): boolean
+Mode.allowBot = function(): boolean
 	return not Rooms.isReservedRoom() -- salon entre amis : on attend l'ami, pas de bot
 end
 local PR = Config.Progress
@@ -51,22 +59,40 @@ Combat.onDetonated = function(by)
 	Profiles.addXP(by, PR.XP_DETONATE)
 	Profiles.event(by, "detonate")
 end
-Joust.onMatchStarted = function(fighters)
-	Profiles.matchStarted(fighters)
-end
-Joust.onRoundWon = function(winner, loser)
+local function roundWonBy(winner: any, loser: any)
 	Profiles.stat(winner, "roundsWon")
 	Profiles.stat(winner, "rounds")
-	Profiles.stat(loser, "rounds")
-	Profiles.addXP(winner, PR.XP_ROUND_WON, multAgainst(loser))
+	if loser then
+		Profiles.stat(loser, "rounds")
+	end
+	Profiles.addXP(winner, PR.XP_ROUND_WON, if loser then multAgainst(loser) else 1)
 	Profiles.event(winner, "roundWon")
 	-- Manche sans perdre une vie.
-	if typeof(winner) == "Instance" and winner:GetAttribute("Lives") == Config.Joust.LIVES then
+	if typeof(winner) == "Instance" and winner:GetAttribute("Lives") == winner:GetAttribute("MaxLives") then
 		Profiles.event(winner, "flawless")
 	end
 end
-Joust.onMatchEnded = function(winner, loser, forfeit)
-	Profiles.matchEnded(winner, loser, forfeit)
+Mode.onMatchStarted = function(fighters)
+	Profiles.matchStarted(fighters)
+end
+if MODE == "elite" then
+	-- 3v3 : manche gagnée par l'attaquant, ou par les défenseurs encore debout.
+	Mode.onRoundWon = function(winners, losers)
+		for _, w in winners do
+			roundWonBy(w, nil)
+		end
+		for _, l in losers do
+			Profiles.stat(l, "rounds")
+		end
+	end
+	Mode.onMatchEnded = function(winners, losers, forfeit)
+		Profiles.teamMatchEnded(winners, losers, forfeit)
+	end
+else
+	Mode.onRoundWon = roundWonBy
+	Mode.onMatchEnded = function(winner, loser, forfeit)
+		Profiles.matchEnded(winner, loser, forfeit)
+	end
 end
 local Bots = require(script.Parent.Bot)
 
@@ -86,7 +112,7 @@ CharacterRig.setupCollisionGroups()
 -- C'est le mode qui décide quand les joueurs apparaissent.
 Players.CharacterAutoLoads = false
 
--- La map est construite par le mode (Joust.init, puis une nouvelle à chaque match).
+-- La map est construite par le mode (Mode.init ; en 1v1, une nouvelle à chaque match).
 
 -- Prépare un personnage (joueur ou bot) : posé au spawn, rig de collision, vies, armes.
 local function onCharacter(player: any, character: Model)
@@ -105,7 +131,7 @@ local function onCharacter(player: any, character: Model)
 	-- On pose d'abord le personnage au spawn (orientation comprise), puis on prépare le rig :
 	-- le client attend l'attribut FeetOffset, il trouvera donc déjà la bonne orientation.
 	local feet = CharacterRig.feetOffset(humanoid, root)
-	local spawnCf = Joust.spawnCFrame(player)
+	local spawnCf = Mode.spawnCFrame(player)
 	character:SetAttribute("SpawnYaw", select(2, spawnCf:ToOrientation()))
 	if typeof(player) == "Instance" then
 		MoveGuard.reset(player) -- apparition voulue : l'anti-triche repart de zéro
@@ -113,9 +139,11 @@ local function onCharacter(player: any, character: Model)
 	character:PivotTo(spawnCf + Vector3.new(0, feet + 0.05 * S, 0))
 	CharacterRig.prepare(character)
 
-	player:SetAttribute("Lives", Config.Joust.LIVES)
+	local lives = Mode.livesFor(player)
+	player:SetAttribute("Lives", lives)
+	player:SetAttribute("MaxLives", lives)
 	Combat.resetArms(player)
-	Joust.onCharacterReady(player)
+	Mode.onCharacterReady(player)
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -154,7 +182,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 Bots.setSpawner(onCharacter)
-Joust.init(Combat)
+Mode.init(Combat)
 
 -- Hors des limites (y < -20 m) → éliminé (« est tombé en service » / « s'est vautré »).
 local killY = Config.Move.KILL_Y * S
@@ -166,7 +194,7 @@ task.spawn(function()
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if root and root.Position.Y < killY and not character:GetAttribute("Falling") then
 				character:SetAttribute("Falling", true)
-				Joust.kill(player, "fall")
+				Mode.kill(player, "fall")
 			end
 		end
 	end

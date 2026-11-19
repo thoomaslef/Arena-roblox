@@ -12,6 +12,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+
 local Rooms = {}
 
 local CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789" -- sans 0/O ni 1/I/L (confusions)
@@ -70,7 +72,23 @@ remote.OnServerEvent:Connect(function(player, action, code)
 		return
 	end
 	busy[player] = true
-	if action == "create" then
+	if action == "switchMode" then
+		-- Passer du 1v1 au 3v3 (ou l'inverse) : téléportation vers l'autre place.
+		local match = ReplicatedStorage:FindFirstChild("Match")
+		local here = match and match:GetAttribute("Mode")
+		local target = if here == "elite" then Config.Places.JOUST else Config.Places.ELITE
+		if target == 0 then
+			remote:FireClient(player, "error", "mode.err_unpublished")
+		else
+			local ok, err = pcall(function()
+				TeleportService:TeleportAsync(target, { player })
+			end)
+			if not ok then
+				warn("[Cavale] Changement de mode impossible :", err)
+				remote:FireClient(player, "error", "room.err_fail")
+			end
+		end
+	elseif action == "create" then
 		local ok, accessCode = pcall(function()
 			return TeleportService:ReserveServer(game.PlaceId)
 		end)

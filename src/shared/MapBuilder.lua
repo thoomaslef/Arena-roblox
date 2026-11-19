@@ -95,6 +95,7 @@ export type BuiltMap = {
 	center: Vector3, -- en mètres
 	zoneCenter: Vector3, -- en mètres
 	spawns: { CFrame }, -- en studs (pieds du joueur), orientés
+	objects: { [string]: { CFrame } }, -- tous les objets par type (spawn_attacker, pole…), en studs
 }
 
 -- name : nom du Model (« Map » pour l'arène) ; offset (m) : décalage de toute la map
@@ -157,11 +158,15 @@ function MapBuilder.build(data, parent: Instance?, name: string?, offset: Vector
 	markers.Parent = model
 
 	local spawns = {}
+	local objects: { [string]: { CFrame } } = {}
 	local size = data.size or { 21, 21 }
 	local center = Vector3.new(size[1] * CELL * 0.5, 0, size[2] * CELL * 0.5) + off
 	local zoneCenter = center
 	for _, o in data.objects or {} do
 		local p = cellCenter(o.pos) + off
+		local objCf = CFrame.new(p * S) * CFrame.Angles(0, MapBuilder.yawForRot(o.rot or 0), 0)
+		objects[o.type] = objects[o.type] or {}
+		table.insert(objects[o.type], objCf)
 		if o.type == "spawn_joust" then
 			local cf = CFrame.new(p * S) * CFrame.Angles(0, MapBuilder.yawForRot(o.rot or 0), 0)
 			table.insert(spawns, cf)
@@ -191,6 +196,7 @@ function MapBuilder.build(data, parent: Instance?, name: string?, offset: Vector
 		center = center,
 		zoneCenter = zoneCenter,
 		spawns = spawns,
+		objects = objects,
 	}
 end
 

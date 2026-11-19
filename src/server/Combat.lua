@@ -100,8 +100,32 @@ local function world(): RaycastParams
 end
 
 -- Remis à zéro (début de manche, réapparition).
+-- Réglages de roquettes propres au joueur (attributs du personnage posés par le mode :
+-- RocketMax, RocketReload), sinon ceux de Config.Rocket.
+local function rocketMax(player: any): number
+	local c = player.Character
+	local v = c and c:GetAttribute("RocketMax")
+	return if type(v) == "number" then v else R.CHARGES
+end
+local function rocketReload(player: any): number
+	local c = player.Character
+	local v = c and c:GetAttribute("RocketReload")
+	return if type(v) == "number" then v else R.RELOAD
+end
+-- Arme imposée (3v3 : l'attaquant a le Rail partout).
+local function forcedWeapon(player: any): string?
+	local c = player.Character
+	local v = c and c:GetAttribute("ForcedWeapon")
+	return if type(v) == "string" then v else nil
+end
+-- Début de manche sans roquettes : seulement dans le mode 1v1.
+local function startsEmpty(): boolean
+	local match = ReplicatedStorage:FindFirstChild("Match")
+	return R.START_EMPTY and match ~= nil and match:GetAttribute("Mode") ~= "elite"
+end
+
 function Combat.resetArms(player: any)
-	arms[player] = { charges = R.CHARGES, rail = RL.CHARGES, t = os.clock(), lastFire = -math.huge, lastRail = -math.huge }
+	arms[player] = { charges = rocketMax(player), rail = RL.CHARGES, t = os.clock(), lastFire = -math.huge, lastRail = -math.huge }
 end
 
 -- Vide la réserve de roquettes (début de manche) ; la recharge repart de maintenant.
@@ -125,12 +149,12 @@ local function armsOf(player: any): Arms
 	end
 	local now = os.clock()
 	-- Les deux armes se rechargent en continu, même celle qu'on n'a pas en main.
-	a.charges = math.min(R.CHARGES, a.charges + (now - a.t) / R.RELOAD)
+	a.charges = math.min(rocketMax(player), a.charges + (now - a.t) / rocketReload(player))
 	a.rail = math.min(RL.CHARGES, a.rail + (now - a.t) / RL.RELOAD)
 	a.t = now
-	-- Compte à rebours d'une manche : aucune roquette, la recharge ne démarre qu'au GO.
-	local character = if typeof(player) == "Instance" or type(player) == "table" then player.Character else nil
-	if R.START_EMPTY and character and character:GetAttribute("Frozen") == true then
+	-- Compte à rebours d'une manche (1v1) : aucune roquette, la recharge ne démarre qu'au GO.
+	local character = player.Character
+	if startsEmpty() and character and character:GetAttribute("Frozen") == true then
 		a.charges = 0
 	end
 	return a
@@ -138,7 +162,7 @@ end
 
 -- Gestion des dégâts : remplacée par les règles du mode à l'étape 5.
 -- Par défaut : -1 vie, et à 0 on réapparaît avec 3 vies.
-function Combat.defaultDamage(victim: Player, attacker: Player?): boolean
+function Combat.defaultDamage(victim: Player, attacker: Player?, _weapon: string?): boolean
 	local lives = ((victim:GetAttribute("Lives") or Config.Joust.LIVES) :: number) - 1
 	victim:SetAttribute("Lives", math.max(0, lives))
 	if lives <= 0 then
@@ -157,6 +181,11 @@ Combat.onDamage = Combat.defaultDamage
 function Combat.canBeHit(player: Player): boolean
 	local lives = player:GetAttribute("Lives")
 	return player.Character ~= nil and (lives == nil or (lives :: number) > 0)
+end
+
+-- Peut-il blesser cette cible ? (3v3 : pas de dégâts entre coéquipiers) — le mode le remplace.
+function Combat.canDamage(_attacker: any, _victim: any): boolean
+	return true
 end
 
 -- Appelé quand une explosion pousse un joueur (branché sur l'anti-triche par Main).
@@ -185,7 +214,7 @@ end
 local function applyHit(victim: any, attacker: any, from: Vector3, weapon: string)
 	local victimCharacter = victim.Character -- gardé avant : il disparaît s'il est éliminé
 	local airborne = isAirborne(victimCharacter)
-	local killed = Combat.onDamage(victim, attacker)
+	local killed = Combat.onDamage(victim, attacker, weapon)
 	Combat.onHitScored(attacker, victim, killed, weapon, airborne)
 	if attacker.Parent then
 		send(attacker, "hit", victim.DisplayName, killed, victimCharacter, victim:GetAttribute("Lives"))
@@ -207,7 +236,7 @@ local function explode(rk: Live, pos: Vector3, n: Vector3)
 			continue
 		end
 		-- Dégâts : jamais sur soi (ni sur un allié, sans objet en 1v1).
-		if p ~= shooter and Rocket.damages(pos, n, feet, wp) then
+		if p ~= shooter and Combat.canDamage(shooter, p) and Rocket.damages(pos, n, feet, wp) then
 			applyHit(p, shooter, pos, "rocket")
 		end
 		-- Poussée : tout le monde ; le lanceur calcule la sienne lui-même (réactivité du rocket jump).
@@ -256,6 +285,7 @@ function Combat.fireRocket(player: any, clientId: any, eye: any, dir: any, yaw: 
 	local ok = feet ~= nil
 		and Combat.canFire(player)
 		and a.charges >= R.SERVER_MIN_CHARGE
+		and forcedWeapon(player) ~= "rail"
 		and now - a.lastFire >= R.SERVER_MIN_INTERVAL
 		and player.Character:GetAttribute("CanFire") ~= false
 	if ok then
@@ -337,7 +367,7 @@ function Combat.fireRail(player: any, eye: any, dir: any, yaw: any, claimModel: 
 		and Combat.canFire(player)
 		and a.rail >= R.SERVER_MIN_CHARGE
 		and now - a.lastRail >= RL.SERVER_MIN_INTERVAL
-		and now - (railSeen[player] or -math.huge) <= RL.SERVER_RAIL_MEMORY
+		and (forcedWeapon(player) == "rail" or now - (railSeen[player] or -math.huge) <= RL.SERVER_RAIL_MEMORY)
 		and player.Character:GetAttribute("CanFire") ~= false
 	if ok then
 		local serverEye = (feet :: Vector3) + Vector3.new(0, Config.Body.EYE_HEIGHT, 0)
@@ -360,12 +390,12 @@ function Combat.fireRail(player: any, eye: any, dir: any, yaw: any, claimModel: 
 	local victim: any = nil
 	if typeof(claimModel) == "Instance" and isFiniteVec(claimPoint) then
 		local claimed = Combat.ownerOf(claimModel)
-		if claimed and claimed ~= player and Combat.canBeHit(claimed) and claimValid(claimed, claimPoint, eye, dir) then
+		if claimed and claimed ~= player and Combat.canBeHit(claimed) and Combat.canDamage(player, claimed) and claimValid(claimed, claimPoint, eye, dir) then
 			victim = claimed
 			stop = claimPoint
 		end
 	end
-	if not victim and hitPlayer and hitPlayer ~= player and Combat.canBeHit(hitPlayer) then
+	if not victim and hitPlayer and hitPlayer ~= player and Combat.canBeHit(hitPlayer) and Combat.canDamage(player, hitPlayer) then
 		victim = hitPlayer
 	end
 

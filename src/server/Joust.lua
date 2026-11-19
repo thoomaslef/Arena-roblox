@@ -84,6 +84,11 @@ end
 function Joust.onRoundWon(_winner: any, _loser: any) end
 function Joust.onMatchEnded(_winner: any, _loser: any, _forfeit: boolean) end
 
+-- Vies au début d'une manche (1v1 : toujours 3).
+function Joust.livesFor(_player: any): number
+	return J.LIVES
+end
+
 function Joust.state(): string
 	return state
 end
@@ -504,6 +509,7 @@ function Joust.init(combat)
 	matchRemote.Name = "Match"
 	matchRemote.Parent = ReplicatedStorage:WaitForChild("Remotes")
 
+	matchFolder:SetAttribute("Mode", "joust")
 	Joust.loadMap(pickMap())
 	-- Terrain du tutoriel, construit une fois, loin de l'arène (aucune interférence).
 	tutorialMap = MapBuilder.build(require(ReplicatedStorage.Shared:WaitForChild("TutorialMap")), Workspace, "TutorialMap", Vector3.new(-320, 0, -320))

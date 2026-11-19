@@ -283,6 +283,9 @@ function CharacterAnimator.update(dt: number)
 		if grounded and ground then
 			e.weapon = if ground:GetAttribute("Surface") == "rail" then "rail" else "rocket"
 		end
+		if model:GetAttribute("ForcedWeapon") == "rail" then
+			e.weapon = "rail" -- 3v3 : l'attaquant a le Rail partout
+		end
 
 		-- Direction du déplacement par rapport au regard (repère du HumanoidRootPart).
 		local twistTarget, backwards = 0, false

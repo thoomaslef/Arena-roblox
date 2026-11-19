@@ -209,6 +209,14 @@ local function velocityOf(character: Model?): Vector3
 	return if root then root.AssemblyLinearVelocity / S else Vector3.zero
 end
 
+-- Arme en main : le Rail sur une plateforme Rail, ou partout si le mode l'impose (attaquant 3v3).
+function Bot:_usesRail(): boolean
+	if self.Character and self.Character:GetAttribute("ForcedWeapon") == "rail" then
+		return true
+	end
+	return self.ctrl ~= nil and self.ctrl.surface == "rail"
+end
+
 function Bot:_forward(): Vector3
 	return Vector3.new(-math.sin(self.yaw), 0, -math.cos(self.yaw))
 end
@@ -253,7 +261,7 @@ function Bot:_aimPoint(eye: Vector3, target: any): Vector3?
 		return nil
 	end
 	local tv = velocityOf(target.Character)
-	if self.ctrl and self.ctrl.surface == "rail" then
+	if self:_usesRail() then
 		return tFeet + Vector3.new(0, 1.1, 0) + tv * 0.04
 	end
 	local tt = (tFeet - eye).Magnitude / R.SPEED
@@ -304,7 +312,7 @@ function Bot:_shoot(dt: number, eye: Vector3, feet: Vector3, target: any)
 	if self.Character and self.Character:GetAttribute("CanFire") == false then
 		return
 	end
-	local rail = self.ctrl and self.ctrl.surface == "rail"
+	local rail = self:_usesRail()
 	local reaction = self.skill.reaction * (if rail then 1.6 else 1)
 	if self.visibleTime < reaction then
 		return
@@ -436,7 +444,7 @@ function Bot:_combatMove(dt: number, feet: Vector3, target: any): Vector3
 	local d = to.Magnitude
 	local dir = to / math.max(d, 0.01)
 	local perp = Vector3.new(-dir.Z, 0, dir.X) * self.strafeDir
-	local pref = if self.ctrl and self.ctrl.surface == "rail" then 24 else 14
+	local pref = if self:_usesRail() then 24 else 14
 	local radial = math.clamp((d - pref) / 8, -1, 1)
 	local mv = perp + dir * radial * 0.9
 	if onFloor and dropAhead(feet, mv) then
